@@ -40,4 +40,4 @@ std::string_view readIdentifier(std::string_view InitLine, size_t &pos);
 
 Keyword IsKeyword(const std::string_view lexeme);
 
-std::vector <Token> Tokenize(std::string InitLine);
+std::vector <std::vector <Token>> Tokenize(std::vector <std::string>& InitLine);

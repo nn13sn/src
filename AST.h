@@ -28,7 +28,7 @@ struct Declaration : Statement {
 };
 
 struct Output : Statement {
-    std::string output;
+    std::unique_ptr <Expression> output;
 };
 
 struct Definition : Statement {
@@ -45,7 +45,7 @@ struct Variable : Expression {
 };
 
 struct Binary : Expression {
-    char sign;
+    char op;
     std::unique_ptr <Expression> right;
     std::unique_ptr <Expression> left;
 };

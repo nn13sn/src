@@ -26,11 +26,14 @@ Keyword IsKeyword(const std::string_view lexeme){
     return Keyword::amount;
 }
 
-std::vector <Token> Tokenize(std::string InitLine){
+std::vector <std::vector <Token>> Tokenize(std::vector <std::string>& Initialcode){
    size_t pos = 0;
    Keyword result;
    std::string_view lexeme;
    std::vector <Token> tokens;
+   std::vector <std::vector <Token>> alltokens;
+   for(size_t i = 0; i < Initialcode.size(); i++){
+     std::string InitLine = Initialcode[i];
     while(pos<InitLine.size()){
         if(InitLine[pos]==' ') {
             pos++;
@@ -39,12 +42,12 @@ std::vector <Token> Tokenize(std::string InitLine){
         else if(std::isalpha(InitLine[pos]) || InitLine[pos]=='_') {
             lexeme = readIdentifier(InitLine, pos);
             result = IsKeyword(lexeme);
-            if(result != Keyword::amount) tokens.emplace_back(TokenType::Keyword, result, std::string(lexeme), size_t{0}, static_cast<size_t> (pos));
-            else tokens.emplace_back(TokenType::Identifier, result, std::string(lexeme), size_t{0}, static_cast<size_t> (pos));
+            if(result != Keyword::amount) tokens.emplace_back(TokenType::Keyword, result, std::string(lexeme), i, static_cast<size_t> (pos));
+            else tokens.emplace_back(TokenType::Identifier, result, std::string(lexeme), i, static_cast<size_t> (pos));
         }
         else if (std::isdigit(InitLine[pos])) 
         {
-            tokens.emplace_back(TokenType::Number, Keyword::amount, std::string(1, InitLine[pos]), size_t{0}, static_cast<size_t> (pos));
+            tokens.emplace_back(TokenType::Number, Keyword::amount, std::string(1, InitLine[pos]), i, static_cast<size_t> (pos));
             pos++;
         }
         else 
@@ -56,17 +59,21 @@ std::vector <Token> Tokenize(std::string InitLine){
                 case ';':
                 case '[':
                 case ']':
-                tokens.emplace_back(TokenType::Separator, Keyword::amount, std::string(1, InitLine[pos]), size_t{0}, static_cast<size_t> (pos));
+                tokens.emplace_back(TokenType::Separator, Keyword::amount, std::string(1, InitLine[pos]), i, static_cast<size_t> (pos));
                 break;
                 default:
-                tokens.emplace_back(TokenType::Operator, Keyword::amount, std::string(1, InitLine[pos]), size_t{0}, static_cast<size_t> (pos));
+                tokens.emplace_back(TokenType::Operator, Keyword::amount, std::string(1, InitLine[pos]), i, static_cast<size_t> (pos));
                 break;
             }
             pos++;
         }
     }
-    tokens.emplace_back(TokenType::End, Keyword::amount, "", size_t{0}, size_t{0});
-    return tokens;
+    tokens.emplace_back(TokenType::End, Keyword::amount, "", i, static_cast<size_t> (pos));
+    alltokens.push_back(tokens);
+    tokens.clear();
+    pos = 0;
+   }
+    return alltokens;
 }
 
 

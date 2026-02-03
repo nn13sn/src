@@ -57,7 +57,7 @@ std::unique_ptr <Expression> Parser::ParseTerm(){
         auto right = SingleParse();
         auto left = std::move(expr);
         auto bin = std::make_unique <Binary> ();
-        bin->sign = sign;
+        bin->op = sign;
         bin->right = std::move(right);
         bin->left = std::move(left);
         expr = std::move(bin);
@@ -74,7 +74,7 @@ std::unique_ptr <Expression> Parser::MakeExpression(){
         auto right = ParseTerm();
         auto left = std::move(expr);
         auto bin = std::make_unique <Binary> ();
-        bin->sign = sign;
+        bin->op = sign;
         bin->right = std::move(right);
         bin->left = std::move(left);
         expr = std::move(bin);
@@ -99,7 +99,7 @@ std::unique_ptr <Statement> Parser::MakeStatement(){
         advance();
         if (Check("(")) advance();
         else SyntaxErr();
-        if (Check(TokenType::Identifier)) stmt->output = advance().lexeme;
+        if (Check(TokenType::Number) || Check(TokenType::Identifier)) stmt->output = MakeExpression();
         else SyntaxErr();
         if (Check(")")) advance();
         else SyntaxErr();
@@ -135,6 +135,6 @@ void Parser::Parse(Program& program){
     }
 }
     catch (const std::invalid_argument& e){
-        std::cout<<e.what()<<std::endl;
+        std::cerr <<e.what()<<std::endl;
     }
 }
