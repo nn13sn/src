@@ -36,6 +36,12 @@ struct Definition : Statement {
     std::unique_ptr <Expression> value;
 };
 
+struct IfStatement : Statement {
+  std::unique_ptr <Program> Instructions = std::make_unique <Program> ();
+  std::unique_ptr <Expression> expr;
+  std::unique_ptr <IfStatement> elseStatement = nullptr;
+};
+
 struct Number : Expression {
     int number;
 };
@@ -48,4 +54,10 @@ struct Binary : Expression {
     char op;
     std::unique_ptr <Expression> right;
     std::unique_ptr <Expression> left;
+};
+
+struct Logical : Expression {
+  std::unique_ptr <Expression> right;
+  std::unique_ptr <Expression> left;
+  std::string op;
 };

@@ -31,6 +31,34 @@ bool Parser::Check(Keyword keyword){
     return keyword == peek().keyword;
 }
 
+bool Parser::eatEnd(){
+  if(Check(TokenType::End)){
+  if(line == tokens.size()-1) return false;
+  line++;
+  pos = 0;
+  return true;
+  }
+  return false;
+}
+
+std::unique_ptr <Program> Parser::MakeBody(){
+ auto body = std::make_unique <Program> ();
+   eatEnd();
+  while(true){
+    if(Check("}")) break;
+    body->statements.push_back(MakeStatement());
+    if(Check("}")) break;
+    else if (!eatEnd()) SyntaxErr();
+  }
+  advance();
+  if(Check(TokenType::End)){
+   if(line == tokens.size()-1) return body; 
+   line++;
+   pos=0;
+  }
+  return body;
+}
+
 std::unique_ptr <Expression> Parser::SingleParse(){
     if(Check(TokenType::Number)){
         auto expr = std::make_unique <Number> ();
@@ -47,13 +75,28 @@ std::unique_ptr <Expression> Parser::SingleParse(){
     SyntaxErr();
     return nullptr;
 }
+std::unique_ptr <Expression> Parser::MakeExpression(){
+  auto expr = ParseMidTerm();
+
+  while(Check(">") || Check("<") || Check("=")){
+    std::string sign = advance().lexeme;
+    if(Check ("=")) sign +=advance().lexeme;
+    auto right = ParseMidTerm();
+    auto left = std::move(expr);
+    auto logic = std::make_unique <Logical> ();
+    logic -> op = sign;
+    logic-> right = std::move(right);
+    logic -> left = std::move(left);
+    expr = std::move(logic);
+  }
+  return expr;
+}
 
 std::unique_ptr <Expression> Parser::ParseTerm(){
     auto expr = SingleParse();
 
     while(Check("*") || Check("/")){
-        char sign = peek().lexeme[0];
-        advance();
+        char sign = advance().lexeme[0];
         auto right = SingleParse();
         auto left = std::move(expr);
         auto bin = std::make_unique <Binary> ();
@@ -65,12 +108,11 @@ std::unique_ptr <Expression> Parser::ParseTerm(){
     return expr;
 }
 
-std::unique_ptr <Expression> Parser::MakeExpression(){
+std::unique_ptr <Expression> Parser::ParseMidTerm(){
     auto expr = ParseTerm();
 
     while(Check("+") || Check("-")){
-        char sign = peek().lexeme[0];
-        advance();
+        char sign = advance().lexeme[0];
         auto right = ParseTerm();
         auto left = std::move(expr);
         auto bin = std::make_unique <Binary> ();
@@ -82,20 +124,20 @@ std::unique_ptr <Expression> Parser::MakeExpression(){
     return expr;
 }
 
-std::unique_ptr <Statement> Parser::MakeStatement(){
-    if (Check(Keyword::Int)){
-        auto stmt = std::make_unique<Declaration> ();
+std::unique_ptr <Statement> Parser::ParseDeclaration(){
+ auto stmt = std::make_unique<Declaration> ();
         if(advance().keyword == Keyword::Int) stmt->type = Datatype::Int;
             if (Check(TokenType::Identifier)) stmt->name = advance().lexeme;
             else SyntaxErr();
-            if (Check(";")){
-                    advance();
+            if (Check(TokenType::End)){
                     return stmt;
             }
             else SyntaxErr();
-    }
-    else if(Check(Keyword::Out)){
-        auto stmt = std::make_unique<Output> ();
+            return nullptr;
+}
+
+std::unique_ptr <Statement> Parser::ParseOutput(){
+ auto stmt = std::make_unique<Output> ();
         advance();
         if (Check("(")) advance();
         else SyntaxErr();
@@ -103,25 +145,61 @@ std::unique_ptr <Statement> Parser::MakeStatement(){
         else SyntaxErr();
         if (Check(")")) advance();
         else SyntaxErr();
-        if (Check(";")) {
-            advance();
+        if (Check(TokenType::End)) {
             return stmt;
         }
         else SyntaxErr();
-    }
-    else if (Check(TokenType::Identifier)){
-        auto stmt = std::make_unique<Definition> ();
+        return nullptr;
+}
+
+std::unique_ptr <Statement> Parser::ParseDefinition(){
+ auto stmt = std::make_unique<Definition> ();
         stmt->name = advance().lexeme;
         if (Check("=")) advance();
         else SyntaxErr();
         stmt->value = MakeExpression();
-        if(Check(";")) {
-            advance();
+        if(Check(TokenType::End)) {
             return stmt;
         }
         else SyntaxErr();
+        return nullptr;
+}
+std::unique_ptr <Statement> Parser::ParseIfStatement(){
+  auto stmt = std::make_unique<IfStatement> ();
+  advance();
+  if(Check("(")) advance();
+  else SyntaxErr();
+  stmt -> expr = MakeExpression();
+  if (Check(")")) advance();
+  else SyntaxErr();
+  eatEnd();
+  if (Check("{")) advance();
+  else SyntaxErr();
+  stmt->Instructions = MakeBody();
+  if(Check(Keyword::Else)){
+    stmt-> elseStatement = std::make_unique <IfStatement> ();
+    advance();
+    eatEnd();
+    if (Check("{")) {
+      advance();
+      stmt->elseStatement->expr = nullptr;
+      stmt->elseStatement->Instructions = MakeBody();
     }
-    return nullptr; //пока что не буду парсить остальное
+    else if(Check(Keyword::If)){
+      stmt->elseStatement.reset(static_cast <IfStatement*>(ParseIfStatement().release()));
+    }
+    else SyntaxErr();
+  }
+  return stmt;
+}
+
+std::unique_ptr <Statement> Parser::MakeStatement(){
+    if (Check(Keyword::Int)) return ParseDeclaration();
+    if(Check(Keyword::Out)) return ParseOutput();
+    if (Check(TokenType::Identifier)) return ParseDefinition();
+    if(Check(Keyword::If)) return ParseIfStatement();
+    SyntaxErr();
+    return nullptr; 
 }
 
 void Parser::Parse(Program& program){
@@ -130,8 +208,9 @@ void Parser::Parse(Program& program){
          program.statements.push_back(MakeStatement());
         if(peek().type == TokenType::End){
             line++;
-            pos = 0; //изменяю pos только в случае новой строки, тк в одной строке может быть неск инструкций
+            pos = 0; 
         }
+        else SyntaxErr();
     }
 }
     catch (const std::invalid_argument& e){
