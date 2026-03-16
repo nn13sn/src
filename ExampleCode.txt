@@ -2,12 +2,8 @@ in(int(first))
 in(char(operator))
 in(int(second))
 
-if (operator == '+'){	second = second + 1}
-else if (operator == '-'){out(first - second)}
-else if(operator == '*'){out(first * second)}
-else if(operator == '/'){out(first / second)}
-else {out("No such operator")}
-i=0
+if(operator == '+' &&  first == 1 && second == 2) {out("works\n")}
+i = 0
 while(i<5){
 	out("3\n")
 i = i + 1
