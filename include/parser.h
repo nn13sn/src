@@ -1,12 +1,14 @@
 #pragma once
 #include "AST.h"
 #include "lexer.h"
+#include <algorithm>
 #include <cstddef>
 #include <iostream>
 #include <stdexcept>
 #define OPENPARENTHESIS "Expected \"(\""
 #define CLOSEPARENTHESIS "Expected \")\""
 #define OPENCURLYBRACKET "Expected \"{\""
+
 class Parser {
 private:
   size_t line = 0;
@@ -22,10 +24,15 @@ private:
   std::unique_ptr<Statement> ParseIfStatement();
   std::unique_ptr<Statement> ParseWhile();
   std::unique_ptr<Statement> ParseFor();
-  std::unique_ptr<Expression> ParseMidTerm();
   std::unique_ptr<Expression> MakeExpression();
-  std::unique_ptr<Expression> MakeLogical();
+  std::unique_ptr<Expression> UnaryParse();
   std::unique_ptr<Expression> ParseTerm();
+  std::unique_ptr<Expression> ParseMidTerm();
+  std::unique_ptr<Expression> LogicalParse();
+  std::unique_ptr<Expression> AndParse();
+  template <typename LowFunc>
+  std::unique_ptr<Expression> ParseBinary(LowFunc ParseLower,
+                                          const std::vector<Operator> &ops);
   std::unique_ptr<Expression> SingleParse();
   std::unique_ptr<Program> MakeBody();
   bool Check(TokenType type);

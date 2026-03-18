@@ -165,7 +165,11 @@ bool Lexer::isOperator() {
                                    // but for safety i decided not to do so
   switch (Initialcode[i][pos]) {
   case '+':
-    op = Operator::Add;
+    if (Initialcode[i][pos + 1] == '+') {
+      ++pos;
+      op = Operator::PreIncr;
+    } else
+      op = Operator::Add;
     break;
   case '*':
     op = Operator::Mul;
@@ -184,6 +188,9 @@ bool Lexer::isOperator() {
         op = Operator::ArrowEq;
       } else
         op = Operator::Arrow;
+    } else if (Initialcode[i][pos + 1] == '-') {
+      ++pos;
+      op = Operator::PreDecr;
     } else
       op = Operator::Sub;
     break;

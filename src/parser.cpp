@@ -169,67 +169,68 @@ std::unique_ptr<Expression> Parser::SingleParse() {
   return nullptr;
 }
 
+template <typename LowFunc> // I made this method to avoid the code repetion
+                            // when parsing each level
+std::unique_ptr<Expression>
+Parser::ParseBinary(LowFunc ParseLower, const std::vector<Operator> &ops) {
+  auto expr = ParseLower();
+  while (Check(TokenType::Operator) &&
+         std::find(ops.begin(), ops.end(),
+                   static_cast<Operator>(peek().value)) != ops.end()) {
+    auto bin = std::make_unique<Binary>();
+    bin->op = static_cast<Operator>(peek().value);
+    bin->location.line = peek().lineID;
+    bin->location.column = advance().columnID;
+    bin->right = ParseLower();
+    bin->left = std::move(expr);
+    expr = std::move(bin);
+  }
+  return expr;
+}
+
 std::unique_ptr<Expression> Parser::MakeExpression() {
-  auto expr = MakeLogical();
-  while (Check(Operator::AND) || Check(Operator::OR)) {
-    auto bin = std::make_unique<Binary>();
-    auto op = static_cast<Operator>(peek().value);
-    bin->location.line = peek().lineID;
-    bin->location.column = advance().columnID;
-    bin->op = op;
-    bin->right = MakeLogical();
-    bin->left = std::move(expr);
-    expr = std::move(bin);
-  }
-  return expr;
+  return ParseBinary([this]() { return AndParse(); }, {Operator::OR});
 }
 
-std::unique_ptr<Expression> Parser::MakeLogical() {
-  auto expr = ParseMidTerm();
-
-  while (Check(Operator::Greater) || Check(Operator::Less) ||
-         Check(Operator::Equal) || Check(Operator::GreaterEq) ||
-         Check(Operator::LessEq) || Check(Operator::NotEqual)) {
-    auto bin = std::make_unique<Binary>();
-    auto op = static_cast<Operator>(peek().value);
-    bin->location.line = peek().lineID;
-    bin->location.column = advance().columnID;
-    bin->op = op;
-    bin->right = ParseMidTerm();
-    bin->left = std::move(expr);
-    expr = std::move(bin);
-  }
-  return expr;
+std::unique_ptr<Expression> Parser::AndParse() {
+  return ParseBinary([this]() { return LogicalParse(); }, {Operator::AND});
 }
 
-std::unique_ptr<Expression> Parser::ParseTerm() {
-  auto expr = SingleParse();
-
-  while (Check(Operator::Mul) || Check(Operator::Div) || Check(Operator::Mod)) {
-    auto bin = std::make_unique<Binary>();
-    auto op = static_cast<Operator>(peek().value);
-    bin->location.line = peek().lineID;
-    bin->location.column = advance().columnID;
-    bin->op = op;
-    bin->right = SingleParse();
-    bin->left = std::move(expr);
-    expr = std::move(bin);
-  }
-  return expr;
+std::unique_ptr<Expression> Parser::LogicalParse() {
+  return ParseBinary([this]() { return ParseMidTerm(); },
+                     {Operator::Greater, Operator::Less, Operator::GreaterEq,
+                      Operator::LessEq, Operator::Equal, Operator::NotEqual});
 }
 
 std::unique_ptr<Expression> Parser::ParseMidTerm() {
-  auto expr = ParseTerm();
+  return ParseBinary([this]() { return ParseTerm(); },
+                     {Operator::Add, Operator::Sub});
+}
 
-  while (Check(Operator::Add) || Check(Operator::Sub)) {
-    auto bin = std::make_unique<Binary>();
-    auto op = static_cast<Operator>(peek().value);
-    bin->location.line = peek().lineID;
-    bin->location.column = advance().columnID;
-    bin->op = op;
-    bin->right = ParseTerm();
-    bin->left = std::move(expr);
-    expr = std::move(bin);
+std::unique_ptr<Expression> Parser::ParseTerm() {
+  return ParseBinary([this]() { return UnaryParse(); },
+                     {Operator::Mul, Operator::Div, Operator::Mod});
+}
+
+std::unique_ptr<Expression> Parser::UnaryParse() {
+  if (Check(Operator::PreIncr) || Check(Operator::PreDecr) ||
+      Check(Operator::Not)) {
+    auto unary = std::make_unique<Unary>();
+    unary->op = static_cast<Operator>(peek().value);
+    unary->location.line = peek().lineID;
+    unary->location.column = advance().columnID;
+    unary->expr = UnaryParse();
+    return unary;
+  }
+  auto expr = SingleParse();
+  while (Check(Operator::PreIncr) || Check(Operator::PreDecr)) {
+    auto unary = std::make_unique<Unary>();
+    unary->op =
+        Check(Operator::PreIncr) ? Operator::PostIncr : Operator::PostDecr;
+    unary->location.line = peek().lineID;
+    unary->location.column = advance().columnID;
+    unary->expr = std::move(expr);
+    expr = std::move(unary);
   }
   return expr;
 }

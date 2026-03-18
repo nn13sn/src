@@ -23,7 +23,12 @@ enum class Operator : uint8_t {
   Div,
   Mod,
 
+  PreIncr,
+  PostIncr,
+  PreDecr,
+  PostDecr,
   Not,
+
   Less,
   Greater,
   LessEq,
@@ -123,6 +128,11 @@ struct Binary : Expression {
   Operator op;
   std::unique_ptr<Expression> right;
   std::unique_ptr<Expression> left;
+};
+
+struct Unary : Expression {
+  Operator op;
+  std::unique_ptr<Expression> expr;
 };
 
 struct Cast : Expression {

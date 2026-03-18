@@ -59,6 +59,9 @@ Value Interpreter::eval(const Expression &expr) {
       }
     } catch (const std::runtime_error &err) {
       throw interpreter_error(err.what(), a->location.line, a->location.column);
+      // Have to do this in each if, the reason is that there
+      // is no need to catch the exceptions from the
+      // convertString method, so i have to avoid it
     }
   } else if (auto a = dynamic_cast<const Cast *>(&expr)) {
     auto b = eval(*a->expr);
@@ -81,6 +84,19 @@ Value Interpreter::eval(const Expression &expr) {
       }
     } catch (const std::runtime_error &err) {
       throw interpreter_error(err.what(), a->location.line, a->location.column);
+    }
+  } else if (auto a = dynamic_cast<const Unary *>(&expr)) {
+    switch (a->op) {
+    case Operator::Not:
+      return {Datatype::Bool, !isTrue(eval(*a->expr))};
+    case Operator::PreIncr:
+      return evalPreIncr(*a);
+    case Operator::PreDecr:
+      return evalPreDecr(*a);
+    case Operator::PostIncr:
+      return evalPostIncr(*a);
+    case Operator::PostDecr:
+      return evalPostDecr(*a);
     }
   }
 }
@@ -168,6 +184,112 @@ char Interpreter::toChar(const Value &value) {
   if (var < 0 || var > 255)
     throw std::runtime_error("the value is too big to be casted");
   return static_cast<char>(static_cast<unsigned char>(var));
+}
+
+Value Interpreter::evalPreIncr(const Unary &expr) {
+  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
+    if (auto b = findVar(a->name)) {
+      if (isNumeric(*b)) {
+        std::visit(
+            [](auto &c) {
+              using T = std::decay_t<decltype(c)>;
+              if constexpr (std::is_arithmetic_v<T>) {
+                c = c + 1;
+              }
+            },
+            b->data);
+        return *b;
+      } else
+        throw interpreter_error(
+            "The increment operator cannot be used to such value type",
+            expr.location.line, expr.location.column);
+    } else
+      throw interpreter_error("No such variable seems to be defined",
+                              expr.location.line, expr.location.column);
+  } else
+    throw interpreter_error(
+        "The increment operator cannot only be used with variables",
+        expr.location.line, expr.location.column);
+}
+
+Value Interpreter::evalPreDecr(const Unary &expr) {
+  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
+    if (auto b = findVar(a->name)) {
+      if (isNumeric(*b)) {
+        std::visit(
+            [](auto &c) {
+              using T = std::decay_t<decltype(c)>;
+              if constexpr (std::is_arithmetic_v<T>) {
+                c = c - 1;
+              }
+            },
+            b->data);
+        return *b;
+      } else
+        throw interpreter_error(
+            "The decrement operator cannot be used to such value type",
+            expr.location.line, expr.location.column);
+    } else
+      throw interpreter_error("No such variable seems to be defined",
+                              expr.location.line, expr.location.column);
+  } else
+    throw interpreter_error(
+        "The decrement operator cannot only be used with variables",
+        expr.location.line, expr.location.column);
+}
+
+Value Interpreter::evalPostIncr(const Unary &expr) {
+  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
+    if (auto b = findVar(a->name)) {
+      if (isNumeric(*b)) {
+        auto c = *b; // previous value
+        std::visit(
+            [](auto &c) {
+              using T = std::decay_t<decltype(c)>;
+              if constexpr (std::is_arithmetic_v<T>) {
+                c = c + 1;
+              }
+            },
+            b->data);
+        return c;
+      } else
+        throw interpreter_error(
+            "The increment operator cannot be used to such value type",
+            expr.location.line, expr.location.column);
+    } else
+      throw interpreter_error("No such variable seems to be defined",
+                              expr.location.line, expr.location.column);
+  } else
+    throw interpreter_error(
+        "The increment operator cannot only be used with variables",
+        expr.location.line, expr.location.column);
+}
+
+Value Interpreter::evalPostDecr(const Unary &expr) {
+  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
+    if (auto b = findVar(a->name)) {
+      if (isNumeric(*b)) {
+        auto c = *b;
+        std::visit(
+            [](auto &c) {
+              using T = std::decay_t<decltype(c)>;
+              if constexpr (std::is_arithmetic_v<T>) {
+                c = c - 1;
+              }
+            },
+            b->data);
+        return c;
+      } else
+        throw interpreter_error(
+            "The decrement operator cannot be used to such value type",
+            expr.location.line, expr.location.column);
+    } else
+      throw interpreter_error("No such variable seems to be defined",
+                              expr.location.line, expr.location.column);
+  } else
+    throw interpreter_error(
+        "The decrement operator cannot only be used with variables",
+        expr.location.line, expr.location.column);
 }
 
 Value Interpreter::evalAdd(const Value &left, const Value &right) {
