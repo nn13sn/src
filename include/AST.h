@@ -79,11 +79,6 @@ struct Program : AST {
   std::vector<std::unique_ptr<Statement>> statements;
 };
 
-struct Declaration : Statement {
-  Datatype type;
-  std::string name;
-};
-
 struct Input : Statement {
   std::unique_ptr<Expression> input;
 };
@@ -92,9 +87,8 @@ struct Output : Statement {
   std::unique_ptr<Expression> output;
 };
 
-struct Definition : Statement {
-  std::string name;
-  std::unique_ptr<Expression> value;
+struct ExpressionStmt : Statement {
+  std::unique_ptr<Expression> expr;
 };
 
 struct IfStatement : Statement {
@@ -109,9 +103,10 @@ struct While : Statement {
 };
 
 struct For : Statement {
+  std::string iterator;
   Operator op;
-  std::unique_ptr<Definition> step = nullptr;
-  std::unique_ptr<Definition> Initialvalue = std::make_unique<Definition>();
+  std::unique_ptr<Expression> step = nullptr;
+  std::unique_ptr<Expression> Initialvalue;
   std::unique_ptr<Expression> Finalvalue;
   std::unique_ptr<Program> Instructions;
 };

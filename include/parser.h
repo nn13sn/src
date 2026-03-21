@@ -20,16 +20,17 @@ private:
   std::unique_ptr<Statement> MakeStatement();
   std::unique_ptr<Statement> ParseInput();
   std::unique_ptr<Statement> ParseOutput();
-  std::unique_ptr<Statement> ParseDefinition();
+  std::unique_ptr<Statement> ParseExpression();
   std::unique_ptr<Statement> ParseIfStatement();
   std::unique_ptr<Statement> ParseWhile();
   std::unique_ptr<Statement> ParseFor();
   std::unique_ptr<Expression> MakeExpression();
+  std::unique_ptr<Expression> OrParse();
+  std::unique_ptr<Expression> AndParse();
   std::unique_ptr<Expression> UnaryParse();
   std::unique_ptr<Expression> ParseTerm();
   std::unique_ptr<Expression> ParseMidTerm();
   std::unique_ptr<Expression> LogicalParse();
-  std::unique_ptr<Expression> AndParse();
   template <typename LowFunc>
   std::unique_ptr<Expression> ParseBinary(LowFunc ParseLower,
                                           const std::vector<Operator> &ops);

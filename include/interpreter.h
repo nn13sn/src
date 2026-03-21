@@ -22,7 +22,7 @@ private:
   void matchStatement(const Statement &stmt);
   void input(const Input &stmt);
   void output(const Output &stmt);
-  void definition(const Definition &stmt);
+  void expression(const ExpressionStmt &stmt);
   void whileloop(const While &stmt);
   void forloop(const For &stmt);
   void forbody(Value *&Initial, const short &direction, const For &stmt);
@@ -39,6 +39,7 @@ private:
   Value evalPreDecr(const Unary &expr);
   Value evalPostIncr(const Unary &expr);
   Value evalPostDecr(const Unary &expr);
+  Value evalDef(const Binary &expr);
   Value evalAdd(const Value &left, const Value &right);
   Value evalSub(const Value &left, const Value &right);
   Value evalMul(const Value &left, const Value &right);

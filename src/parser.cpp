@@ -1,4 +1,6 @@
 #include "parser.h"
+#include "lexer.h"
+#include <memory>
 const Token &Parser::peek() const { return tokens[line][pos]; }
 
 Token &Parser::advance() {
@@ -189,6 +191,20 @@ Parser::ParseBinary(LowFunc ParseLower, const std::vector<Operator> &ops) {
 }
 
 std::unique_ptr<Expression> Parser::MakeExpression() {
+  auto expr = OrParse();
+  if (Check(Operator::Def)) {
+    auto def = std::make_unique<Binary>();
+    def->op = Operator::Def;
+    def->location.line = peek().lineID;
+    def->location.column = advance().columnID;
+    def->right = MakeExpression();
+    def->left = std::move(expr);
+    return def;
+  }
+  return expr;
+}
+
+std::unique_ptr<Expression> Parser::OrParse() {
   return ParseBinary([this]() { return AndParse(); }, {Operator::OR});
 }
 
@@ -265,14 +281,10 @@ std::unique_ptr<Statement> Parser::ParseOutput() {
   return stmt;
 }
 
-std::unique_ptr<Statement> Parser::ParseDefinition() {
-  auto stmt = std::make_unique<Definition>();
-  stmt->name = advance().lexeme;
-  if (Check(Operator::Def))
-    stmt->location.line = advance().lineID;
-  else
-    SyntaxErr("Expected \"=\"");
-  stmt->value = MakeExpression();
+std::unique_ptr<Statement> Parser::ParseExpression() {
+  auto stmt = std::make_unique<ExpressionStmt>();
+  stmt->location.line = peek().lineID;
+  stmt->expr = MakeExpression();
   return stmt;
 }
 
@@ -339,28 +351,29 @@ std::unique_ptr<Statement> Parser::ParseFor() {
     advance();
   else
     SyntaxErr(OPENPARENTHESIS);
-  stmt->Initialvalue->value = nullptr;
   if (Check(TokenType::Identifier)) {
-    stmt->Initialvalue->location.line = peek().lineID;
-    stmt->Initialvalue->name = advance().lexeme;
+    stmt->iterator = advance().lexeme;
   } else
     SyntaxErr("Variable (iterator) is expected");
   if (Check(Operator::Def)) {
     advance();
-    stmt->Initialvalue->value = MakeExpression();
-  }
+    stmt->Initialvalue = ParseMidTerm();
+  } else
+    stmt->Initialvalue = nullptr;
   if (Check(Operator::Arrow) || Check(Operator::ArrowEq) ||
       Check(Operator::NotEqual) || Check(Operator::Greater) ||
-      Check(Operator::Less) || Check(Operator::LessEq) ||
-      Check(Operator::GreaterEq)) {
+      Check(Operator::Less) || Check(Operator::GreaterEq) ||
+      Check(Operator::LessEq)) {
     stmt->op = static_cast<Operator>(advance().value);
+    stmt->Finalvalue = MakeExpression();
   } else
-    SyntaxErr("Invalid operator or not an operator");
-  stmt->Finalvalue = MakeExpression();
+    SyntaxErr("A correct operator is expected");
   if (Check(Separator::LeftParenthesis)) {
     advance();
-    if (Check(TokenType::Identifier))
-      stmt->step.reset(static_cast<Definition *>(ParseDefinition().release()));
+    if (Check(TokenType::Identifier)) {
+      stmt->step = std::make_unique<Expression>();
+      stmt->step = MakeExpression();
+    }
     if (Check(Separator::RightParenthesis))
       advance();
     else
@@ -384,8 +397,11 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
     return ParseOutput();
   else if (Check(Keyword::In))
     return ParseInput();
-  else if (Check(TokenType::Identifier))
-    return ParseDefinition();
+  else if (Check(TokenType::Identifier) || Check(TokenType::Operator) ||
+           Check(TokenType::Separator) || Check(TokenType::String) ||
+           Check(TokenType::Boolean) || Check(TokenType::Double) ||
+           Check(TokenType::Symbol) || Check(TokenType::Number))
+    return ParseExpression();
   else if (Check(Keyword::If))
     return ParseIfStatement();
   else if (Check(Keyword::While))

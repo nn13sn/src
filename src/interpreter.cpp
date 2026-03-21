@@ -42,6 +42,8 @@ Value Interpreter::eval(const Expression &expr) {
         return evalGe(eval(*(a->left)), eval(*(a->right)));
       case Operator::LessEq:
         return evalLe(eval(*(a->left)), eval(*(a->right)));
+      case Operator::Def:
+        return evalDef(*a);
       case Operator::AND:
         if (!isTrue(eval(*(a->left))))
           return {Datatype::Bool, false};
@@ -292,6 +294,20 @@ Value Interpreter::evalPostDecr(const Unary &expr) {
         expr.location.line, expr.location.column);
 }
 
+Value Interpreter::evalDef(const Binary &expr) {
+  if (auto a = dynamic_cast<const Variable *>(expr.left.get())) {
+    auto right = eval(*expr.right);
+    if (auto b = findVar(a->name)) {
+      *b = right;
+    } else {
+      variables.back()[a->name] = right;
+    }
+    return right;
+  } else
+    throw std::runtime_error(
+        "The definition operator can only be used to variables");
+}
+
 Value Interpreter::evalAdd(const Value &left, const Value &right) {
   if (!isNumeric(left) || !isNumeric(right))
     throw std::runtime_error(
@@ -419,12 +435,7 @@ Value *Interpreter::findVar(const std::string &name) {
   return nullptr;
 }
 
-void Interpreter::definition(const Definition &stmt) {
-  if (auto b = findVar(stmt.name))
-    *b = eval(*stmt.value);
-  else
-    variables.back()[stmt.name] = eval(*stmt.value);
-}
+void Interpreter::expression(const ExpressionStmt &stmt) { eval(*stmt.expr); }
 
 void Interpreter::input(const Input &stmt) {
   if (auto a = dynamic_cast<const Variable *>(stmt.input.get())) {
@@ -508,7 +519,7 @@ void Interpreter::forbody(Value *&Initial, const short &direction,
     matchStatement(*stmt.Instructions->statements[i]);
   }
   variables.pop_back();
-  Initial = findVar(stmt.Initialvalue->name);
+  Initial = findVar(stmt.iterator);
   if (stmt.step == nullptr) {
     std::visit(
         [direction](auto &a) {
@@ -519,21 +530,25 @@ void Interpreter::forbody(Value *&Initial, const short &direction,
         },
         Initial->data);
   } else {
-    definition(*stmt.step);
+    eval(*stmt.step);
   }
 }
 
 void Interpreter::forloop(const For &stmt) {
   variables.push_back({});
-  if (stmt.Initialvalue->value == nullptr) {
-    if (!findVar(stmt.Initialvalue->name)) {
-      variables.back()[stmt.Initialvalue->name] = {Datatype::Int, 0};
+  auto op = stmt.op;
+  if (stmt.Initialvalue == nullptr) {
+    if (!findVar(stmt.iterator)) {
+      variables.back()[stmt.iterator] = {Datatype::Int, 0};
     }
   } else {
-    definition(*stmt.Initialvalue);
+    if (auto a = findVar(stmt.iterator))
+      *a = eval(*stmt.Initialvalue);
+    else
+      variables.back()[stmt.iterator] = eval(*stmt.Initialvalue);
   }
   short direction = -1;
-  auto Initial = findVar(stmt.Initialvalue->name);
+  auto Initial = findVar(stmt.iterator);
   int64_t Final;
   if (auto a = eval(*stmt.Finalvalue); isNumeric(a) && isNumeric(*Initial)) {
     Final = toInt(a);
@@ -546,13 +561,15 @@ void Interpreter::forloop(const For &stmt) {
   } else if (stmt.op == Operator::ArrowEq) {
     if (toInt(*Initial) <= Final)
       direction = 1;
-  } else if (stmt.op == Operator::Greater || stmt.op == Operator::NotEqual ||
-             stmt.op == Operator::Less || stmt.op == Operator::LessEq ||
-             stmt.op == Operator::GreaterEq) {
+  } else if (stmt.op == Operator::Greater || stmt.op == Operator::Less ||
+             stmt.op == Operator::GreaterEq || stmt.op == Operator::LessEq ||
+             stmt.op == Operator::NotEqual) {
     direction = 1;
   } else
     throw interpreter_error("Invalid operator", stmt.location.line);
-  switch (stmt.op) {
+  if (Initial->type == Datatype::Bool)
+    *Initial = {Datatype::Int, toInt(*Initial)};
+  switch (op) {
   case Operator::Arrow:
     while ((Final - toInt(*Initial)) * direction > 0) {
       forbody(Initial, direction, stmt);
@@ -597,8 +614,8 @@ void Interpreter::matchStatement(const Statement &stmt) {
     output(*a);
   else if (auto a = dynamic_cast<const Input *>(&stmt))
     input(*a);
-  else if (auto a = dynamic_cast<const Definition *>(&stmt))
-    definition(*a);
+  else if (auto a = dynamic_cast<const ExpressionStmt *>(&stmt))
+    expression(*a);
   else if (auto a = dynamic_cast<const IfStatement *>(&stmt))
     ifStatement(*a);
   else if (auto a = dynamic_cast<const While *>(&stmt))
