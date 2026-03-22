@@ -230,7 +230,7 @@ std::unique_ptr<Expression> Parser::ParseTerm() {
 
 std::unique_ptr<Expression> Parser::UnaryParse() {
   if (Check(Operator::PreIncr) || Check(Operator::PreDecr) ||
-      Check(Operator::Not)) {
+      Check(Operator::Not) || Check(Operator::Sub)) {
     auto unary = std::make_unique<Unary>();
     unary->op = static_cast<Operator>(peek().value);
     unary->location.line = peek().lineID;
@@ -368,16 +368,10 @@ std::unique_ptr<Statement> Parser::ParseFor() {
     stmt->Finalvalue = MakeExpression();
   } else
     SyntaxErr("A correct operator is expected");
-  if (Check(Separator::LeftParenthesis)) {
+  if (Check(Separator::Colon)) {
     advance();
-    if (Check(TokenType::Identifier)) {
-      stmt->step = std::make_unique<Expression>();
-      stmt->step = MakeExpression();
-    }
-    if (Check(Separator::RightParenthesis))
-      advance();
-    else
-      SyntaxErr(CLOSEPARENTHESIS);
+    stmt->step = std::make_unique<Expression>();
+    stmt->step = MakeExpression();
   }
   if (Check(Separator::RightParenthesis))
     advance();

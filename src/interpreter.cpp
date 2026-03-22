@@ -99,8 +99,12 @@ Value Interpreter::eval(const Expression &expr) {
       return evalPostIncr(*a);
     case Operator::PostDecr:
       return evalPostDecr(*a);
+    case Operator::Sub:
+      return evalNegative(*a);
     }
   }
+  throw interpreter_error("Cannot recognize the expression type",
+                          expr.location.line, expr.location.column);
 }
 
 bool Interpreter::isNumeric(const Value &value) {
@@ -186,6 +190,24 @@ char Interpreter::toChar(const Value &value) {
   if (var < 0 || var > 255)
     throw std::runtime_error("the value is too big to be casted");
   return static_cast<char>(static_cast<unsigned char>(var));
+}
+
+Value Interpreter::evalNegative(const Unary &expr) {
+  auto value = eval(*expr.expr);
+  if (isNumeric(value)) {
+    std::visit(
+        [](auto &c) {
+          using T = std::decay_t<decltype(c)>;
+          if constexpr (std::is_arithmetic_v<T>) {
+            c = c * (-1);
+          }
+        },
+        value.data);
+    return value;
+  } else
+    throw interpreter_error(
+        "A non-numeric data type cannot be used with negative operator",
+        expr.location.line, expr.location.column);
 }
 
 Value Interpreter::evalPreIncr(const Unary &expr) {

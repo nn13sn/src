@@ -35,6 +35,7 @@ private:
   bool isNumeric(const Value &value);
   bool isTrue(const Value &value);
   Value eval(const Expression &expr);
+  Value evalNegative(const Unary &expr);
   Value evalPreIncr(const Unary &expr);
   Value evalPreDecr(const Unary &expr);
   Value evalPostIncr(const Unary &expr);
