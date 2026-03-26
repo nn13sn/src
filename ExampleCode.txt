@@ -14,6 +14,8 @@ for(i= -5 -> 8 : ++i){
 		out(y)
 	}
 out("\n") }
+logic = true
+out(-logic)
 
 
 

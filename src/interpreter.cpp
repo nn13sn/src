@@ -1,22 +1,71 @@
 #include "interpreter.h"
 #include "AST.h"
 
-interpreter_error::interpreter_error(const std::string &msg, size_t line,
-                                     size_t column)
+interpreter_error::interpreter_error(const std::string &msg,
+                                     const Location &loc)
     : std::runtime_error(msg) {
-  location.line = line;
-  location.column = column;
+  location = loc;
+}
+
+Value Environment::get(const std::string &name) {
+  if (auto value = values.find(name); value != values.end()) {
+    return value->second;
+  }
+  if (parent)
+    return parent->get(name);
+  return {Datatype::Invalid, NULL};
+}
+
+Value *Environment::getPointer(const std::string &name) {
+  if (auto value = values.find(name); value != values.end()) {
+    return &value->second;
+  }
+  if (parent)
+    return parent->getPointer(name);
+  return nullptr;
+}
+
+void Environment::set(const std::string &name, const Value &value) {
+  if (auto ptr = getPointer(name)) {
+    *ptr = value;
+    return;
+  }
+  values[name] = value;
+}
+
+void Interpreter::addScope() {
+  environment = std::make_shared<Environment>(Environment{{}, environment});
+}
+
+void Interpreter::popScope() {
+  if (environment->parent) {
+    environment = environment->parent;
+  }
+  // i could add an exeption here but it should probably be detected at the
+  // parser level
+}
+
+Value Interpreter::validCheck(const Value &value, const Location &loc,
+                              const std::string &name) {
+  if (value.type == Datatype::Invalid) {
+    throw interpreter_error("Undefined variable: " + name, loc);
+  }
+  return value;
+}
+
+Value *Interpreter::validCheck(Value *ptr, const Location &loc,
+                               const std::string &name) {
+  if (!ptr) {
+    throw interpreter_error("Undefined variable: " + name, loc);
+  }
+  return ptr;
 }
 
 Value Interpreter::eval(const Expression &expr) {
   if (auto a = dynamic_cast<const exprValue *>(&expr))
     return a->value;
   else if (auto a = dynamic_cast<const Variable *>(&expr)) {
-    if (auto b = findVar(a->name))
-      return *b;
-    else
-      throw interpreter_error("No such variable seems to be defined",
-                              a->location.line, a->location.column);
+    return validCheck(environment->get(a->name), a->location, a->name);
   } else if (auto a = dynamic_cast<const Binary *>(&expr)) {
     try {
       switch (a->op) {
@@ -60,7 +109,7 @@ Value Interpreter::eval(const Expression &expr) {
         throw std::runtime_error("Invalid operator");
       }
     } catch (const std::runtime_error &err) {
-      throw interpreter_error(err.what(), a->location.line, a->location.column);
+      throw interpreter_error(err.what(), a->location);
       // Have to do this in each if, the reason is that there
       // is no need to catch the exceptions from the
       // convertString method, so i have to avoid it
@@ -85,7 +134,7 @@ Value Interpreter::eval(const Expression &expr) {
         throw std::runtime_error("Invalid data type to be casted to");
       }
     } catch (const std::runtime_error &err) {
-      throw interpreter_error(err.what(), a->location.line, a->location.column);
+      throw interpreter_error(err.what(), a->location);
     }
   } else if (auto a = dynamic_cast<const Unary *>(&expr)) {
     switch (a->op) {
@@ -104,7 +153,7 @@ Value Interpreter::eval(const Expression &expr) {
     }
   }
   throw interpreter_error("Cannot recognize the expression type",
-                          expr.location.line, expr.location.column);
+                          expr.location);
 }
 
 bool Interpreter::isNumeric(const Value &value) {
@@ -136,7 +185,7 @@ Value Interpreter::convertString(const Cast &expr) {
     }
   } catch (const std::exception &) {
     throw interpreter_error("The string cannot be casted to another data type",
-                            expr.location.line, expr.location.column);
+                            expr.location);
   }
 }
 
@@ -207,123 +256,107 @@ Value Interpreter::evalNegative(const Unary &expr) {
   } else
     throw interpreter_error(
         "A non-numeric data type cannot be used with negative operator",
-        expr.location.line, expr.location.column);
+        expr.location);
 }
 
 Value Interpreter::evalPreIncr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    if (auto b = findVar(a->name)) {
-      if (isNumeric(*b)) {
-        std::visit(
-            [](auto &c) {
-              using T = std::decay_t<decltype(c)>;
-              if constexpr (std::is_arithmetic_v<T>) {
-                c = c + 1;
-              }
-            },
-            b->data);
-        return *b;
-      } else
-        throw interpreter_error(
-            "The increment operator cannot be used to such value type",
-            expr.location.line, expr.location.column);
+    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+    if (isNumeric(*b)) {
+      std::visit(
+          [](auto &c) {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_arithmetic_v<T>) {
+              c = c + 1;
+            }
+          },
+          b->data);
+      return *b;
     } else
-      throw interpreter_error("No such variable seems to be defined",
-                              expr.location.line, expr.location.column);
+      throw interpreter_error(
+          "The increment operator cannot be used to such value type",
+          expr.location);
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
-        expr.location.line, expr.location.column);
+        expr.location);
 }
 
 Value Interpreter::evalPreDecr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    if (auto b = findVar(a->name)) {
-      if (isNumeric(*b)) {
-        std::visit(
-            [](auto &c) {
-              using T = std::decay_t<decltype(c)>;
-              if constexpr (std::is_arithmetic_v<T>) {
-                c = c - 1;
-              }
-            },
-            b->data);
-        return *b;
-      } else
-        throw interpreter_error(
-            "The decrement operator cannot be used to such value type",
-            expr.location.line, expr.location.column);
+    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+    if (isNumeric(*b)) {
+      std::visit(
+          [](auto &c) {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_arithmetic_v<T>) {
+              c = c - 1;
+            }
+          },
+          b->data);
+      return *b;
     } else
-      throw interpreter_error("No such variable seems to be defined",
-                              expr.location.line, expr.location.column);
+      throw interpreter_error(
+          "The decrement operator cannot be used to such value type",
+          expr.location);
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
-        expr.location.line, expr.location.column);
+        expr.location);
 }
 
 Value Interpreter::evalPostIncr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    if (auto b = findVar(a->name)) {
-      if (isNumeric(*b)) {
-        auto c = *b; // previous value
-        std::visit(
-            [](auto &c) {
-              using T = std::decay_t<decltype(c)>;
-              if constexpr (std::is_arithmetic_v<T>) {
-                c = c + 1;
-              }
-            },
-            b->data);
-        return c;
-      } else
-        throw interpreter_error(
-            "The increment operator cannot be used to such value type",
-            expr.location.line, expr.location.column);
+    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+    if (isNumeric(*b)) {
+      auto c = *b; // previous value
+      std::visit(
+          [](auto &c) {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_arithmetic_v<T>) {
+              c = c + 1;
+            }
+          },
+          b->data);
+      return c;
     } else
-      throw interpreter_error("No such variable seems to be defined",
-                              expr.location.line, expr.location.column);
+      throw interpreter_error(
+          "The increment operator cannot be used to such value type",
+          expr.location);
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
-        expr.location.line, expr.location.column);
+        expr.location);
 }
 
 Value Interpreter::evalPostDecr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    if (auto b = findVar(a->name)) {
-      if (isNumeric(*b)) {
-        auto c = *b;
-        std::visit(
-            [](auto &c) {
-              using T = std::decay_t<decltype(c)>;
-              if constexpr (std::is_arithmetic_v<T>) {
-                c = c - 1;
-              }
-            },
-            b->data);
-        return c;
-      } else
-        throw interpreter_error(
-            "The decrement operator cannot be used to such value type",
-            expr.location.line, expr.location.column);
+    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+    if (isNumeric(*b)) {
+      auto c = *b;
+      std::visit(
+          [](auto &c) {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_arithmetic_v<T>) {
+              c = c - 1;
+            }
+          },
+          b->data);
+      return c;
     } else
-      throw interpreter_error("No such variable seems to be defined",
-                              expr.location.line, expr.location.column);
+      throw interpreter_error(
+          "The decrement operator cannot be used to such value type",
+          expr.location);
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
-        expr.location.line, expr.location.column);
+        expr.location);
 }
 
 Value Interpreter::evalDef(const Binary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.left.get())) {
     auto right = eval(*expr.right);
-    if (auto b = findVar(a->name)) {
-      *b = right;
-    } else {
-      variables.back()[a->name] = right;
-    }
+    environment->set(a->name, right);
     return right;
   } else
     throw std::runtime_error(
@@ -448,35 +481,25 @@ bool Interpreter::isTrue(const Value &value) {
   }
 }
 
-Value *Interpreter::findVar(const std::string &name) {
-  for (auto i = variables.rbegin(); i != variables.rend(); i++) {
-    auto found = i->find(name);
-    if (found != i->end())
-      return &found->second;
-  }
-  return nullptr;
-}
-
 void Interpreter::expression(const ExpressionStmt &stmt) { eval(*stmt.expr); }
 
 void Interpreter::input(const Input &stmt) {
   if (auto a = dynamic_cast<const Variable *>(stmt.input.get())) {
     std::string str;
     std::cin >> str;
-    variables.back()[a->name] = {Datatype::String, str};
+    environment->set(a->name, {Datatype::String, str});
     return;
   } else if (auto a = dynamic_cast<const Cast *>(stmt.input.get())) {
     if (auto b = dynamic_cast<const Variable *>(a->expr.get())) {
       std::string str;
       std::cin >> str;
-      variables.back()[b->name] = {Datatype::String, str};
-      variables.back()[b->name] = convertString(*a);
+      environment->set(b->name, {Datatype::String, str});
+      environment->set(b->name, convertString(*a));
       return;
     }
   }
   throw interpreter_error(
-      "The expressions cannot be used in the input function",
-      stmt.location.line);
+      "The expressions cannot be used in the input function", stmt.location);
 }
 
 void Interpreter::output(const Output &stmt) {
@@ -498,50 +521,49 @@ void Interpreter::output(const Output &stmt) {
     std::cout << std::get<std::string>(value.data);
     break;
   default:
-    throw interpreter_error("Such data type cannot be printed",
-                            stmt.location.line);
+    throw interpreter_error("Such data type cannot be printed", stmt.location);
   }
 }
 
 void Interpreter::ifStatement(const IfStatement &stmt) {
   if (isTrue(eval(*stmt.expr))) {
-    variables.push_back({});
+    addScope();
     for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
       matchStatement(*stmt.Instructions->statements[i]);
     }
-    variables.pop_back();
+    popScope();
   } else if (stmt.elseStatement) {
     if (stmt.elseStatement->expr)
       ifStatement(*stmt.elseStatement);
     else {
-      variables.push_back({});
+      addScope();
       for (size_t i = 0;
            i < stmt.elseStatement->Instructions->statements.size(); i++) {
         matchStatement(*stmt.elseStatement->Instructions->statements[i]);
       }
-      variables.pop_back();
+      popScope();
     }
   }
 }
 
 void Interpreter::whileloop(const While &stmt) {
   while (isTrue(eval(*stmt.expr))) {
-    variables.push_back({});
+    addScope();
     for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
       matchStatement(*stmt.Instructions->statements[i]);
     }
-    variables.pop_back();
+    popScope();
   }
 }
 
 void Interpreter::forbody(Value *&Initial, const short &direction,
                           const For &stmt) {
-  variables.push_back({});
+  addScope();
   for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
     matchStatement(*stmt.Instructions->statements[i]);
   }
-  variables.pop_back();
-  Initial = findVar(stmt.iterator);
+  popScope();
+  Initial = environment->getPointer(stmt.iterator);
   if (stmt.step == nullptr) {
     std::visit(
         [direction](auto &a) {
@@ -557,26 +579,25 @@ void Interpreter::forbody(Value *&Initial, const short &direction,
 }
 
 void Interpreter::forloop(const For &stmt) {
-  variables.push_back({});
+  addScope();
   auto op = stmt.op;
   if (stmt.Initialvalue == nullptr) {
-    if (!findVar(stmt.iterator)) {
-      variables.back()[stmt.iterator] = {Datatype::Int, 0};
+    if (!environment->getPointer(stmt.iterator)) {
+      environment->set(stmt.iterator, {Datatype::Int, 0});
     }
   } else {
-    if (auto a = findVar(stmt.iterator))
+    if (auto a = environment->getPointer(stmt.iterator))
       *a = eval(*stmt.Initialvalue);
     else
-      variables.back()[stmt.iterator] = eval(*stmt.Initialvalue);
+      environment->set(stmt.iterator, eval(*stmt.Initialvalue));
   }
   short direction = -1;
-  auto Initial = findVar(stmt.iterator);
+  auto Initial = environment->getPointer(stmt.iterator);
   int64_t Final;
   if (auto a = eval(*stmt.Finalvalue); isNumeric(a) && isNumeric(*Initial)) {
     Final = toInt(a);
   } else
-    throw interpreter_error("The data type is not numerical",
-                            stmt.location.line);
+    throw interpreter_error("The data type is not numerical", stmt.location);
   if (stmt.op == Operator::Arrow) {
     if (toInt(*Initial) < Final)
       direction = 1;
@@ -588,7 +609,7 @@ void Interpreter::forloop(const For &stmt) {
              stmt.op == Operator::NotEqual) {
     direction = 1;
   } else
-    throw interpreter_error("Invalid operator", stmt.location.line);
+    throw interpreter_error("Invalid operator", stmt.location);
   if (Initial->type == Datatype::Bool)
     *Initial = {Datatype::Int, toInt(*Initial)};
   switch (op) {
@@ -628,7 +649,7 @@ void Interpreter::forloop(const For &stmt) {
     }
     break;
   }
-  variables.pop_back();
+  popScope();
 }
 
 void Interpreter::matchStatement(const Statement &stmt) {
@@ -647,7 +668,6 @@ void Interpreter::matchStatement(const Statement &stmt) {
 }
 
 void Interpreter::execute(const Program &program) {
-  variables.push_back({});
   for (size_t i = 0; i < program.statements.size(); i++) {
     matchStatement(*program.statements[i]);
   }

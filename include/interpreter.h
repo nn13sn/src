@@ -9,7 +9,15 @@
 class interpreter_error : public std::runtime_error {
 public:
   Location location;
-  interpreter_error(const std::string &msg, size_t line, size_t column = 0);
+  interpreter_error(const std::string &msg, const Location &loc);
+};
+
+struct Environment {
+  std::unordered_map<std::string, Value> values = {};
+  std::shared_ptr<Environment> parent = nullptr;
+  Value get(const std::string &name);
+  Value *getPointer(const std::string &name);
+  void set(const std::string &name, const Value &value);
 };
 
 class Interpreter {
@@ -17,8 +25,7 @@ public:
   void execute(const Program &program);
 
 private:
-  std::vector<std::unordered_map<std::string, Value>> variables;
-  Value *findVar(const std::string &name);
+  std::shared_ptr<Environment> environment = std::make_shared<Environment>();
   void matchStatement(const Statement &stmt);
   void input(const Input &stmt);
   void output(const Output &stmt);
@@ -52,4 +59,9 @@ private:
   Value evalNq(const Value &left, const Value &right);
   Value evalGe(const Value &left, const Value &right);
   Value evalLe(const Value &left, const Value &right);
+  void addScope();
+  void popScope();
+  Value validCheck(const Value &value, const Location &loc,
+                   const std::string &name);
+  Value *validCheck(Value *ptr, const Location &loc, const std::string &name);
 };
