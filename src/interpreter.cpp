@@ -67,79 +67,68 @@ Value Interpreter::eval(const Expression &expr) {
   else if (auto a = dynamic_cast<const Variable *>(&expr)) {
     return validCheck(environment->get(a->name), a->location, a->name);
   } else if (auto a = dynamic_cast<const Binary *>(&expr)) {
-    try {
-      switch (a->op) {
-      case Operator::Add:
-        return evalAdd(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Sub:
-        return evalSub(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Mul:
-        return evalMul(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Div:
-        return evalDiv(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Mod:
-        return evalMod(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Greater:
-        return evalGr(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Less:
-        return evalLs(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Equal:
-        return evalEq(eval(*(a->left)), eval(*(a->right)));
-      case Operator::NotEqual:
-        return evalNq(eval(*(a->left)), eval(*(a->right)));
-      case Operator::GreaterEq:
-        return evalGe(eval(*(a->left)), eval(*(a->right)));
-      case Operator::LessEq:
-        return evalLe(eval(*(a->left)), eval(*(a->right)));
-      case Operator::Def:
-        return evalDef(*a);
-      case Operator::AND:
-        if (!isTrue(eval(*(a->left))))
-          return {Datatype::Bool, false};
-        if (!isTrue(eval(*(a->right))))
-          return {Datatype::Bool, false};
-        return {Datatype::Bool, true};
-      case Operator::OR:
-        if (isTrue(eval(*(a->left))))
-          return {Datatype::Bool, true};
-        if (isTrue(eval(*(a->right))))
-          return {Datatype::Bool, true};
+    switch (a->op) {
+    case Operator::Add:
+      return evalAdd(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Sub:
+      return evalSub(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Mul:
+      return evalMul(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Div:
+      return evalDiv(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Mod:
+      return evalMod(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Greater:
+      return evalGr(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Less:
+      return evalLs(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Equal:
+      return evalEq(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::NotEqual:
+      return evalNq(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::GreaterEq:
+      return evalGe(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::LessEq:
+      return evalLe(eval(*(a->left)), eval(*(a->right)), a->location);
+    case Operator::Def:
+      return evalDef(*a);
+    case Operator::AND:
+      if (!isTrue(eval(*(a->left)), a->location))
         return {Datatype::Bool, false};
-      default:
-        throw std::runtime_error("Invalid operator");
-      }
-    } catch (const std::runtime_error &err) {
-      throw interpreter_error(err.what(), a->location);
-      // Have to do this in each if, the reason is that there
-      // is no need to catch the exceptions from the
-      // convertString method, so i have to avoid it
+      if (!isTrue(eval(*(a->right)), a->location))
+        return {Datatype::Bool, false};
+      return {Datatype::Bool, true};
+    case Operator::OR:
+      if (isTrue(eval(*(a->left)), a->location))
+        return {Datatype::Bool, true};
+      if (isTrue(eval(*(a->right)), a->location))
+        return {Datatype::Bool, true};
+      return {Datatype::Bool, false};
+    default:
+      throw interpreter_error("A binary operator is expected", a->location);
     }
   } else if (auto a = dynamic_cast<const Cast *>(&expr)) {
     auto b = eval(*a->expr);
     if (b.type == Datatype::String)
       return convertString(*a);
-    try {
-      switch (a->castTo) {
-      case Datatype::Int:
-        return {Datatype::Int, toInt(b)};
-      case Datatype::Double:
-        return {Datatype::Double, toDouble(b)};
-      case Datatype::Char:
-        return {Datatype::Char, toChar(b)};
-      case Datatype::Bool:
-        return {Datatype::Bool, isTrue(b)};
-      case Datatype::String:
-        return {Datatype::String, toString(b)};
-      default:
-        throw std::runtime_error("Invalid data type to be casted to");
-      }
-    } catch (const std::runtime_error &err) {
-      throw interpreter_error(err.what(), a->location);
+    switch (a->castTo) {
+    case Datatype::Int:
+      return {Datatype::Int, toInt(b, a->location)};
+    case Datatype::Double:
+      return {Datatype::Double, toDouble(b, a->location)};
+    case Datatype::Char:
+      return {Datatype::Char, toChar(b, a->location)};
+    case Datatype::Bool:
+      return {Datatype::Bool, isTrue(b, a->location)};
+    case Datatype::String:
+      return {Datatype::String, toString(b, a->location)};
+    default:
+      throw interpreter_error("Invalid data type to be casted to", a->location);
     }
   } else if (auto a = dynamic_cast<const Unary *>(&expr)) {
     switch (a->op) {
     case Operator::Not:
-      return {Datatype::Bool, !isTrue(eval(*a->expr))};
+      return {Datatype::Bool, !isTrue(eval(*a->expr), a->location)};
     case Operator::PreIncr:
       return evalPreIncr(*a);
     case Operator::PreDecr:
@@ -150,6 +139,8 @@ Value Interpreter::eval(const Expression &expr) {
       return evalPostDecr(*a);
     case Operator::Sub:
       return evalNegative(*a);
+    default:
+      throw interpreter_error("An unary operator is expected", a->location);
     }
   }
   throw interpreter_error("Cannot recognize the expression type",
@@ -173,7 +164,7 @@ Value Interpreter::convertString(const Cast &expr) {
       return {Datatype::Double, std::stod(std::get<std::string>(b.data))};
     case Datatype::Char:
       if (auto a = std::get<std::string>(b.data); a.size() == 1)
-        return {Datatype::Char, a[0]};
+        return {Datatype::Char, static_cast<unsigned char>(a[0])};
       else
         throw std::runtime_error("err");
     case Datatype::Bool:
@@ -189,56 +180,56 @@ Value Interpreter::convertString(const Cast &expr) {
   }
 }
 
-double Interpreter::toDouble(const Value &value) {
+double Interpreter::toDouble(const Value &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data);
   case Datatype::Double:
     return std::get<double>(value.data);
   case Datatype::Char:
-    return static_cast<unsigned char>(std::get<char>(value.data));
+    return std::get<unsigned char>(value.data);
   case Datatype::Bool:
     return std::get<bool>(value.data) ? 1.0 : 0.0;
   default:
-    throw std::runtime_error("Such data type cannot be casted to double");
+    throw interpreter_error("Such data type cannot be casted to double", loc);
   }
 }
 
-int64_t Interpreter::toInt(const Value &value) {
+int64_t Interpreter::toInt(const Value &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data);
   case Datatype::Double:
     return static_cast<int64_t>(std::round(std::get<double>(value.data)));
   case Datatype::Char:
-    return std::get<char>(value.data);
+    return std::get<unsigned char>(value.data);
   case Datatype::Bool:
     return std::get<bool>(value.data);
   default:
-    throw std::runtime_error("Such data type cannot be casted to int");
+    throw interpreter_error("Such data type cannot be casted to int", loc);
   }
 }
 
-std::string Interpreter::toString(const Value &value) {
+std::string Interpreter::toString(const Value &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::to_string(std::get<int64_t>(value.data));
   case Datatype::Double:
     return std::to_string(std::get<double>(value.data));
   case Datatype::Char:
-    return std::string(1, std::get<char>(value.data));
+    return std::string(1, std::get<unsigned char>(value.data));
   case Datatype::Bool:
     return std::get<bool>(value.data) ? "true" : "false";
   default:
-    throw std::runtime_error("Such data type cannot be casted to string");
+    throw interpreter_error("Such data type cannot be casted to string", loc);
   }
 }
 
-char Interpreter::toChar(const Value &value) {
-  int64_t var = toInt(value);
+unsigned char Interpreter::toChar(const Value &value, const Location &loc) {
+  int64_t var = toInt(value, loc);
   if (var < 0 || var > 255)
-    throw std::runtime_error("the value is too big to be casted");
-  return static_cast<char>(static_cast<unsigned char>(var));
+    throw interpreter_error("The value is too big to be casted to char", loc);
+  return static_cast<unsigned char>(var);
 }
 
 Value Interpreter::evalNegative(const Unary &expr) {
@@ -359,117 +350,128 @@ Value Interpreter::evalDef(const Binary &expr) {
     environment->set(a->name, right);
     return right;
   } else
-    throw std::runtime_error(
-        "The definition operator can only be used to variables");
+    throw interpreter_error(
+        "The definition operator can only be used to variables", expr.location);
 }
 
-Value Interpreter::evalAdd(const Value &left, const Value &right) {
+Value Interpreter::evalAdd(const Value &left, const Value &right,
+                           const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"+\" cannot be used to such value type");
+    throw interpreter_error("Operator \"+\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Double, toDouble(left) + toDouble(right)};
-  return {Datatype::Int, toInt(left) + toInt(right)};
+    return {Datatype::Double, toDouble(left, loc) + toDouble(right, loc)};
+  return {Datatype::Int, toInt(left, loc) + toInt(right, loc)};
 }
 
-Value Interpreter::evalSub(const Value &left, const Value &right) {
+Value Interpreter::evalSub(const Value &left, const Value &right,
+                           const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"-\" cannot be used to such value type");
+    throw interpreter_error("Operator \"-\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Double, toDouble(left) - toDouble(right)};
-  return {Datatype::Int, toInt(left) - toInt(right)};
+    return {Datatype::Double, toDouble(left, loc) - toDouble(right, loc)};
+  return {Datatype::Int, toInt(left, loc) - toInt(right, loc)};
 }
 
-Value Interpreter::evalMul(const Value &left, const Value &right) {
+Value Interpreter::evalMul(const Value &left, const Value &right,
+                           const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"*\" cannot be used to such value type");
+    throw interpreter_error("Operator \"*\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Double, toDouble(left) * toDouble(right)};
-  return {Datatype::Int, toInt(left) * toInt(right)};
+    return {Datatype::Double, toDouble(left, loc) * toDouble(right, loc)};
+  return {Datatype::Int, toInt(left, loc) * toInt(right, loc)};
 }
 
-Value Interpreter::evalDiv(const Value &left, const Value &right) {
+Value Interpreter::evalDiv(const Value &left, const Value &right,
+                           const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"/\" cannot be used to such value type");
-  auto DBLright = toDouble(right);
+    throw interpreter_error("Operator \"/\" cannot be used to such value type",
+                            loc);
+  auto DBLright = toDouble(right, loc);
   if (DBLright == 0.0)
-    throw std::runtime_error("Division by zero is not permitted");
-  return {Datatype::Double, toDouble(left) / DBLright};
+    throw interpreter_error("Division by zero is not permitted", loc);
+  return {Datatype::Double, toDouble(left, loc) / DBLright};
 }
 
-Value Interpreter::evalMod(const Value &left, const Value &right) {
+Value Interpreter::evalMod(const Value &left, const Value &right,
+                           const Location &loc) {
   if (left.type != Datatype::Int || right.type != Datatype::Int)
-    throw std::runtime_error(
-        "Operator \"%\" cannot be used to such value type");
-  auto INTright = toInt(right);
+    throw interpreter_error("Operator \"%\" cannot be used to such value type",
+                            loc);
+  auto INTright = toInt(right, loc);
   if (INTright == 0)
-    throw std::runtime_error("Division by zero is not permitted");
-  return {Datatype::Int, toInt(left) % toInt(right)};
+    throw interpreter_error("Division by zero is not permitted", loc);
+  return {Datatype::Int, toInt(left, loc) % toInt(right, loc)};
 }
 
-Value Interpreter::evalGr(const Value &left, const Value &right) {
+Value Interpreter::evalGr(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \">\" cannot be used to such value type");
+    throw interpreter_error("Operator \">\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) > toDouble(right)};
-  return {Datatype::Bool, toInt(left) > toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) > toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) > toInt(right, loc)};
 }
 
-Value Interpreter::evalLs(const Value &left, const Value &right) {
+Value Interpreter::evalLs(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"<\" cannot be used to such value type");
+    throw interpreter_error("Operator \"<\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) < toDouble(right)};
-  return {Datatype::Bool, toInt(left) < toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) < toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) < toInt(right, loc)};
 }
 
-Value Interpreter::evalGe(const Value &left, const Value &right) {
+Value Interpreter::evalGe(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \">=\" cannot be used to such value type");
+    throw interpreter_error("Operator \">=\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) >= toDouble(right)};
-  return {Datatype::Bool, toInt(left) >= toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) >= toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) >= toInt(right, loc)};
 }
 
-Value Interpreter::evalLe(const Value &left, const Value &right) {
+Value Interpreter::evalLe(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"<=\" cannot be used to such value type");
+    throw interpreter_error("Operator \"<=\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) <= toDouble(right)};
-  return {Datatype::Bool, toInt(left) <= toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) <= toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) <= toInt(right, loc)};
 }
 
-Value Interpreter::evalEq(const Value &left, const Value &right) {
+Value Interpreter::evalEq(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"==\" cannot be used to such value type");
+    throw interpreter_error("Operator \"==\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) == toDouble(right)};
-  return {Datatype::Bool, toInt(left) == toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) == toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) == toInt(right, loc)};
 }
 
-Value Interpreter::evalNq(const Value &left, const Value &right) {
+Value Interpreter::evalNq(const Value &left, const Value &right,
+                          const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
-    throw std::runtime_error(
-        "Operator \"!=\" cannot be used to such value type");
+    throw interpreter_error("Operator \"!=\" cannot be used to such value type",
+                            loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
-    return {Datatype::Bool, toDouble(left) != toDouble(right)};
-  return {Datatype::Bool, toInt(left) != toInt(right)};
+    return {Datatype::Bool, toDouble(left, loc) != toDouble(right, loc)};
+  return {Datatype::Bool, toInt(left, loc) != toInt(right, loc)};
 }
 
-bool Interpreter::isTrue(const Value &value) {
+bool Interpreter::isTrue(const Value &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data) != 0;
   case Datatype::Char:
-    return std::get<char>(value.data) != '\0';
+    return std::get<unsigned char>(value.data) != '\0';
   case Datatype::String:
     return !std::get<std::string>(value.data).empty();
   case Datatype::Double:
@@ -478,6 +480,9 @@ bool Interpreter::isTrue(const Value &value) {
     return std::get<bool>(value.data);
   case Datatype::Array:
     return !std::get<std::vector<Value>>(value.data).empty();
+  default:
+    throw interpreter_error("Such data type cannot be converted to boolean",
+                            loc);
   }
 }
 
@@ -512,7 +517,7 @@ void Interpreter::output(const Output &stmt) {
     std::cout << std::get<double>(value.data);
     break;
   case Datatype::Char:
-    std::cout << std::get<char>(value.data);
+    std::cout << std::get<unsigned char>(value.data);
     break;
   case Datatype::Bool:
     std::cout << std::get<bool>(value.data);
@@ -526,7 +531,7 @@ void Interpreter::output(const Output &stmt) {
 }
 
 void Interpreter::ifStatement(const IfStatement &stmt) {
-  if (isTrue(eval(*stmt.expr))) {
+  if (isTrue(eval(*stmt.expr), stmt.location)) {
     addScope();
     for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
       matchStatement(*stmt.Instructions->statements[i]);
@@ -547,7 +552,7 @@ void Interpreter::ifStatement(const IfStatement &stmt) {
 }
 
 void Interpreter::whileloop(const While &stmt) {
-  while (isTrue(eval(*stmt.expr))) {
+  while (isTrue(eval(*stmt.expr), stmt.location)) {
     addScope();
     for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
       matchStatement(*stmt.Instructions->statements[i]);
@@ -595,14 +600,16 @@ void Interpreter::forloop(const For &stmt) {
   auto Initial = environment->getPointer(stmt.iterator);
   int64_t Final;
   if (auto a = eval(*stmt.Finalvalue); isNumeric(a) && isNumeric(*Initial)) {
-    Final = toInt(a);
+    Final = toInt(a, stmt.location);
   } else
-    throw interpreter_error("The data type is not numerical", stmt.location);
+    throw interpreter_error(
+        "The initial and the final value both have to be numerical",
+        stmt.location);
   if (stmt.op == Operator::Arrow) {
-    if (toInt(*Initial) < Final)
+    if (toInt(*Initial, stmt.location) < Final)
       direction = 1;
   } else if (stmt.op == Operator::ArrowEq) {
-    if (toInt(*Initial) <= Final)
+    if (toInt(*Initial, stmt.location) <= Final)
       direction = 1;
   } else if (stmt.op == Operator::Greater || stmt.op == Operator::Less ||
              stmt.op == Operator::GreaterEq || stmt.op == Operator::LessEq ||
@@ -611,40 +618,40 @@ void Interpreter::forloop(const For &stmt) {
   } else
     throw interpreter_error("Invalid operator", stmt.location);
   if (Initial->type == Datatype::Bool)
-    *Initial = {Datatype::Int, toInt(*Initial)};
+    *Initial = {Datatype::Int, toInt(*Initial, stmt.location)};
   switch (op) {
   case Operator::Arrow:
-    while ((Final - toInt(*Initial)) * direction > 0) {
+    while ((Final - toInt(*Initial, stmt.location)) * direction > 0) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::ArrowEq:
-    while ((Final - toInt(*Initial)) * direction >= 0) {
+    while ((Final - toInt(*Initial, stmt.location)) * direction >= 0) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::NotEqual:
-    while (toInt(*Initial) != Final) {
+    while (toInt(*Initial, stmt.location) != Final) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::Greater:
-    while (toInt(*Initial) > Final) {
+    while (toInt(*Initial, stmt.location) > Final) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::Less:
-    while (toInt(*Initial) < Final) {
+    while (toInt(*Initial, stmt.location) < Final) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::GreaterEq:
-    while (toInt(*Initial) >= Final) {
+    while (toInt(*Initial, stmt.location) >= Final) {
       forbody(Initial, direction, stmt);
     }
     break;
   case Operator::LessEq:
-    while (toInt(*Initial) <= Final) {
+    while (toInt(*Initial, stmt.location) <= Final) {
       forbody(Initial, direction, stmt);
     }
     break;

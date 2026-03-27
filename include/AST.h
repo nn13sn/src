@@ -58,7 +58,8 @@ enum class Separator : uint8_t {
 
 struct Value {
   Datatype type;
-  std::variant<int64_t, char, std::string, double, bool, std::vector<Value>>
+  std::variant<int64_t, unsigned char, std::string, double, bool,
+               std::vector<Value>>
       data;
 };
 

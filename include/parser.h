@@ -45,7 +45,8 @@ private:
   bool eatEnd();
   Datatype getDatatype(const TokenType &tokentype);
   Datatype getDatatype(const Keyword &keyword);
-  std::variant<int64_t, char, std::string, double, bool, std::vector<Value>>
+  std::variant<int64_t, unsigned char, std::string, double, bool,
+               std::vector<Value>>
   getData();
 
 public:

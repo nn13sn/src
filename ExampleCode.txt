@@ -16,6 +16,8 @@ for(i= -5 -> 8 : ++i){
 out("\n") }
 logic = true
 out(-logic)
+value = char(first)
+out(value)
 
 
 
