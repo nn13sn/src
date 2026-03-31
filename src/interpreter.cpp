@@ -7,7 +7,21 @@ interpreter_error::interpreter_error(const std::string &msg,
   location = loc;
 }
 
-Value Environment::get(const std::string &name) {
+RuntimeValue::RuntimeValue(const Value &value) {
+  type = value.type;
+  std::visit([this](const auto &data) { this->data = data; }, value.data);
+}
+
+RuntimeValue::RuntimeValue(const Datatype &type, const Data &data) {
+  this->type = type;
+  this->data = data;
+}
+
+RuntimeValue::RuntimeValue() {};
+// I need a default constructor because when std::unordered_map creates an
+// empty object first and only then changes it
+
+RuntimeValue Environment::get(const std::string &name) {
   if (auto value = values.find(name); value != values.end()) {
     return value->second;
   }
@@ -16,7 +30,7 @@ Value Environment::get(const std::string &name) {
   return {Datatype::Invalid, NULL};
 }
 
-Value *Environment::getPointer(const std::string &name) {
+RuntimeValue *Environment::getPointer(const std::string &name) {
   if (auto value = values.find(name); value != values.end()) {
     return &value->second;
   }
@@ -25,7 +39,7 @@ Value *Environment::getPointer(const std::string &name) {
   return nullptr;
 }
 
-void Environment::set(const std::string &name, const Value &value) {
+void Environment::set(const std::string &name, const RuntimeValue &value) {
   if (auto ptr = getPointer(name)) {
     *ptr = value;
     return;
@@ -45,23 +59,24 @@ void Interpreter::popScope() {
   // parser level
 }
 
-Value Interpreter::validCheck(const Value &value, const Location &loc,
-                              const std::string &name) {
+RuntimeValue Interpreter::validCheck(const RuntimeValue &value,
+                                     const Location &loc,
+                                     const std::string &name) {
   if (value.type == Datatype::Invalid) {
     throw interpreter_error("Undefined variable: " + name, loc);
   }
   return value;
 }
 
-Value *Interpreter::validCheck(Value *ptr, const Location &loc,
-                               const std::string &name) {
+RuntimeValue *Interpreter::validCheck(RuntimeValue *ptr, const Location &loc,
+                                      const std::string &name) {
   if (!ptr) {
     throw interpreter_error("Undefined variable: " + name, loc);
   }
   return ptr;
 }
 
-Value Interpreter::eval(const Expression &expr) {
+RuntimeValue Interpreter::eval(const Expression &expr) {
   if (auto a = dynamic_cast<const exprValue *>(&expr))
     return a->value;
   else if (auto a = dynamic_cast<const Variable *>(&expr)) {
@@ -147,14 +162,14 @@ Value Interpreter::eval(const Expression &expr) {
                           expr.location);
 }
 
-bool Interpreter::isNumeric(const Value &value) {
+bool Interpreter::isNumeric(const RuntimeValue &value) {
   if (value.type == Datatype::Int || value.type == Datatype::Char ||
       value.type == Datatype::Double || value.type == Datatype::Bool)
     return true;
   return false;
 }
 
-Value Interpreter::convertString(const Cast &expr) {
+RuntimeValue Interpreter::convertString(const Cast &expr) {
   try {
     auto b = eval(*expr.expr);
     switch (expr.castTo) {
@@ -180,7 +195,7 @@ Value Interpreter::convertString(const Cast &expr) {
   }
 }
 
-double Interpreter::toDouble(const Value &value, const Location &loc) {
+double Interpreter::toDouble(const RuntimeValue &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data);
@@ -195,7 +210,7 @@ double Interpreter::toDouble(const Value &value, const Location &loc) {
   }
 }
 
-int64_t Interpreter::toInt(const Value &value, const Location &loc) {
+int64_t Interpreter::toInt(const RuntimeValue &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data);
@@ -210,7 +225,8 @@ int64_t Interpreter::toInt(const Value &value, const Location &loc) {
   }
 }
 
-std::string Interpreter::toString(const Value &value, const Location &loc) {
+std::string Interpreter::toString(const RuntimeValue &value,
+                                  const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::to_string(std::get<int64_t>(value.data));
@@ -225,14 +241,15 @@ std::string Interpreter::toString(const Value &value, const Location &loc) {
   }
 }
 
-unsigned char Interpreter::toChar(const Value &value, const Location &loc) {
+unsigned char Interpreter::toChar(const RuntimeValue &value,
+                                  const Location &loc) {
   int64_t var = toInt(value, loc);
   if (var < 0 || var > 255)
     throw interpreter_error("The value is too big to be casted to char", loc);
   return static_cast<unsigned char>(var);
 }
 
-Value Interpreter::evalNegative(const Unary &expr) {
+RuntimeValue Interpreter::evalNegative(const Unary &expr) {
   auto value = eval(*expr.expr);
   if (isNumeric(value)) {
     std::visit(
@@ -250,7 +267,7 @@ Value Interpreter::evalNegative(const Unary &expr) {
         expr.location);
 }
 
-Value Interpreter::evalPreIncr(const Unary &expr) {
+RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
     auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
     if (isNumeric(*b)) {
@@ -273,7 +290,7 @@ Value Interpreter::evalPreIncr(const Unary &expr) {
         expr.location);
 }
 
-Value Interpreter::evalPreDecr(const Unary &expr) {
+RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
     auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
     if (isNumeric(*b)) {
@@ -296,7 +313,7 @@ Value Interpreter::evalPreDecr(const Unary &expr) {
         expr.location);
 }
 
-Value Interpreter::evalPostIncr(const Unary &expr) {
+RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
     auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
     if (isNumeric(*b)) {
@@ -320,7 +337,7 @@ Value Interpreter::evalPostIncr(const Unary &expr) {
         expr.location);
 }
 
-Value Interpreter::evalPostDecr(const Unary &expr) {
+RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
     auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
     if (isNumeric(*b)) {
@@ -344,7 +361,7 @@ Value Interpreter::evalPostDecr(const Unary &expr) {
         expr.location);
 }
 
-Value Interpreter::evalDef(const Binary &expr) {
+RuntimeValue Interpreter::evalDef(const Binary &expr) {
   if (auto a = dynamic_cast<const Variable *>(expr.left.get())) {
     auto right = eval(*expr.right);
     environment->set(a->name, right);
@@ -354,8 +371,9 @@ Value Interpreter::evalDef(const Binary &expr) {
         "The definition operator can only be used to variables", expr.location);
 }
 
-Value Interpreter::evalAdd(const Value &left, const Value &right,
-                           const Location &loc) {
+RuntimeValue Interpreter::evalAdd(const RuntimeValue &left,
+                                  const RuntimeValue &right,
+                                  const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"+\" cannot be used to such value type",
                             loc);
@@ -364,8 +382,9 @@ Value Interpreter::evalAdd(const Value &left, const Value &right,
   return {Datatype::Int, toInt(left, loc) + toInt(right, loc)};
 }
 
-Value Interpreter::evalSub(const Value &left, const Value &right,
-                           const Location &loc) {
+RuntimeValue Interpreter::evalSub(const RuntimeValue &left,
+                                  const RuntimeValue &right,
+                                  const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"-\" cannot be used to such value type",
                             loc);
@@ -374,8 +393,9 @@ Value Interpreter::evalSub(const Value &left, const Value &right,
   return {Datatype::Int, toInt(left, loc) - toInt(right, loc)};
 }
 
-Value Interpreter::evalMul(const Value &left, const Value &right,
-                           const Location &loc) {
+RuntimeValue Interpreter::evalMul(const RuntimeValue &left,
+                                  const RuntimeValue &right,
+                                  const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"*\" cannot be used to such value type",
                             loc);
@@ -384,8 +404,9 @@ Value Interpreter::evalMul(const Value &left, const Value &right,
   return {Datatype::Int, toInt(left, loc) * toInt(right, loc)};
 }
 
-Value Interpreter::evalDiv(const Value &left, const Value &right,
-                           const Location &loc) {
+RuntimeValue Interpreter::evalDiv(const RuntimeValue &left,
+                                  const RuntimeValue &right,
+                                  const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"/\" cannot be used to such value type",
                             loc);
@@ -395,8 +416,9 @@ Value Interpreter::evalDiv(const Value &left, const Value &right,
   return {Datatype::Double, toDouble(left, loc) / DBLright};
 }
 
-Value Interpreter::evalMod(const Value &left, const Value &right,
-                           const Location &loc) {
+RuntimeValue Interpreter::evalMod(const RuntimeValue &left,
+                                  const RuntimeValue &right,
+                                  const Location &loc) {
   if (left.type != Datatype::Int || right.type != Datatype::Int)
     throw interpreter_error("Operator \"%\" cannot be used to such value type",
                             loc);
@@ -406,8 +428,9 @@ Value Interpreter::evalMod(const Value &left, const Value &right,
   return {Datatype::Int, toInt(left, loc) % toInt(right, loc)};
 }
 
-Value Interpreter::evalGr(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalGr(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \">\" cannot be used to such value type",
                             loc);
@@ -416,8 +439,9 @@ Value Interpreter::evalGr(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) > toInt(right, loc)};
 }
 
-Value Interpreter::evalLs(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalLs(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"<\" cannot be used to such value type",
                             loc);
@@ -426,8 +450,9 @@ Value Interpreter::evalLs(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) < toInt(right, loc)};
 }
 
-Value Interpreter::evalGe(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalGe(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \">=\" cannot be used to such value type",
                             loc);
@@ -436,8 +461,9 @@ Value Interpreter::evalGe(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) >= toInt(right, loc)};
 }
 
-Value Interpreter::evalLe(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalLe(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"<=\" cannot be used to such value type",
                             loc);
@@ -446,8 +472,9 @@ Value Interpreter::evalLe(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) <= toInt(right, loc)};
 }
 
-Value Interpreter::evalEq(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalEq(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"==\" cannot be used to such value type",
                             loc);
@@ -456,8 +483,9 @@ Value Interpreter::evalEq(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) == toInt(right, loc)};
 }
 
-Value Interpreter::evalNq(const Value &left, const Value &right,
-                          const Location &loc) {
+RuntimeValue Interpreter::evalNq(const RuntimeValue &left,
+                                 const RuntimeValue &right,
+                                 const Location &loc) {
   if (!isNumeric(left) || !isNumeric(right))
     throw interpreter_error("Operator \"!=\" cannot be used to such value type",
                             loc);
@@ -466,7 +494,7 @@ Value Interpreter::evalNq(const Value &left, const Value &right,
   return {Datatype::Bool, toInt(left, loc) != toInt(right, loc)};
 }
 
-bool Interpreter::isTrue(const Value &value, const Location &loc) {
+bool Interpreter::isTrue(const RuntimeValue &value, const Location &loc) {
   switch (value.type) {
   case Datatype::Int:
     return std::get<int64_t>(value.data) != 0;
@@ -508,7 +536,7 @@ void Interpreter::input(const Input &stmt) {
 }
 
 void Interpreter::output(const Output &stmt) {
-  Value value = eval(*stmt.output);
+  RuntimeValue value = eval(*stmt.output);
   switch (value.type) {
   case Datatype::Int:
     std::cout << std::get<int64_t>(value.data);
@@ -561,7 +589,7 @@ void Interpreter::whileloop(const While &stmt) {
   }
 }
 
-void Interpreter::forbody(Value *&Initial, const short &direction,
+void Interpreter::forbody(RuntimeValue *&Initial, const short &direction,
                           const For &stmt) {
   addScope();
   for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
@@ -659,6 +687,12 @@ void Interpreter::forloop(const For &stmt) {
   popScope();
 }
 
+void Interpreter::function(const FunctionStatement &stmt) {
+  RuntimeValue Func(Datatype::Function,
+                    std::make_shared<Function>(Function{&stmt, environment}));
+  environment->set(stmt.name, Func);
+}
+
 void Interpreter::matchStatement(const Statement &stmt) {
   if (auto a = dynamic_cast<const Output *>(&stmt))
     output(*a);
@@ -672,6 +706,8 @@ void Interpreter::matchStatement(const Statement &stmt) {
     whileloop(*a);
   else if (auto a = dynamic_cast<const For *>(&stmt))
     forloop(*a);
+  else if (auto a = dynamic_cast<const FunctionStatement *>(&stmt))
+    function(*a);
 }
 
 void Interpreter::execute(const Program &program) {

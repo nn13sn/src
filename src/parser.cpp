@@ -49,7 +49,7 @@ bool Parser::eatEnd() {
   return false;
 }
 
-Datatype Parser::getDatatype(const TokenType &tokentype) {
+Datatype Parser::getDatatype() {
   if (Check(TokenType::Number))
     return Datatype::Int;
   if (Check(TokenType::Double))
@@ -131,7 +131,7 @@ std::unique_ptr<Expression> Parser::SingleParse() {
       Check(TokenType::Boolean) || Check(TokenType::Symbol) ||
       Check(TokenType::String)) {
     auto expr = std::make_unique<exprValue>();
-    expr->value.type = getDatatype(peek().type);
+    expr->value.type = getDatatype();
     expr->value.data = getData();
     expr->location.line = peek().lineID;
     expr->location.column = advance().columnID;
@@ -302,6 +302,8 @@ std::unique_ptr<Statement> Parser::ParseIfStatement() {
   else
     SyntaxErr(CLOSEPARENTHESIS);
   eatEnd();
+  if (line >= tokens.size())
+    SyntaxErr("Unexepected end");
   if (Check(Separator::LeftCurlyBracket))
     advance();
   else
@@ -311,6 +313,8 @@ std::unique_ptr<Statement> Parser::ParseIfStatement() {
     stmt->elseStatement = std::make_unique<IfStatement>();
     stmt->location.line = advance().lineID;
     eatEnd();
+    if (line >= tokens.size())
+      SyntaxErr("Unexepected end");
     if (Check(Separator::LeftCurlyBracket)) {
       advance();
       stmt->elseStatement->expr = nullptr;
@@ -337,6 +341,8 @@ std::unique_ptr<Statement> Parser::ParseWhile() {
   else
     SyntaxErr(CLOSEPARENTHESIS);
   eatEnd();
+  if (line >= tokens.size())
+    SyntaxErr("Unexepected end");
   if (Check(Separator::LeftCurlyBracket))
     advance();
   else
@@ -379,6 +385,39 @@ std::unique_ptr<Statement> Parser::ParseFor() {
   else
     SyntaxErr(CLOSEPARENTHESIS);
   eatEnd();
+  if (line >= tokens.size())
+    SyntaxErr("Unexepected end");
+  if (Check(Separator::LeftCurlyBracket))
+    advance();
+  else
+    SyntaxErr(OPENCURLYBRACKET);
+  stmt->Instructions = MakeBody();
+  return stmt;
+}
+
+std::unique_ptr<Statement> Parser::ParseFunction() {
+  auto stmt = std::make_unique<FunctionStatement>();
+  stmt->location.line = advance().lineID;
+  if (Check(TokenType::Identifier))
+    stmt->name = advance().lexeme;
+  else
+    SyntaxErr("The function name is expected");
+  if (Check(Separator::LeftParenthesis))
+    advance();
+  else
+    SyntaxErr(OPENPARENTHESIS);
+  while (Check(TokenType::Identifier)) {
+    stmt->parameters.push_back(advance().lexeme);
+    if (Check(Separator::Comma))
+      advance();
+  }
+  if (Check(Separator::RightParenthesis))
+    advance();
+  else
+    SyntaxErr(CLOSEPARENTHESIS);
+  eatEnd();
+  if (line >= tokens.size())
+    SyntaxErr("Unexepected end");
   if (Check(Separator::LeftCurlyBracket))
     advance();
   else
@@ -403,6 +442,8 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
     return ParseWhile();
   else if (Check(Keyword::For))
     return ParseFor();
+  else if (Check(Keyword::Function))
+    return ParseFunction();
   SyntaxErr("Cannot match the Syntax");
   return nullptr;
 }

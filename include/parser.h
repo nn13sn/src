@@ -24,6 +24,7 @@ private:
   std::unique_ptr<Statement> ParseIfStatement();
   std::unique_ptr<Statement> ParseWhile();
   std::unique_ptr<Statement> ParseFor();
+  std::unique_ptr<Statement> ParseFunction();
   std::unique_ptr<Expression> MakeExpression();
   std::unique_ptr<Expression> OrParse();
   std::unique_ptr<Expression> AndParse();
@@ -43,7 +44,7 @@ private:
   bool Check(Separator sep);
   bool isEnd();
   bool eatEnd();
-  Datatype getDatatype(const TokenType &tokentype);
+  Datatype getDatatype();
   Datatype getDatatype(const Keyword &keyword);
   std::variant<int64_t, unsigned char, std::string, double, bool,
                std::vector<Value>>

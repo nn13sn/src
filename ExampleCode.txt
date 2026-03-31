@@ -1,7 +1,10 @@
-in(int(first))
-in(char(operator))
-in(int(second))
 
+function sum(a,b){
+a+b
+}
+second = 2
+first = 1
+operator = '+'
 if(operator == '+' &&  first == 1 && second == 2) {out("works\n")}
 i = 10
 while(!(i<5)){
@@ -16,7 +19,8 @@ for(i= -5 -> 8 : ++i){
 out("\n") }
 logic = true
 out(-logic)
-value = char(first)
+out("\n")
+value = char(47)
 out(value)
 
 

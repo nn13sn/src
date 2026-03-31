@@ -6,18 +6,35 @@
 #include <string>
 #include <unordered_map>
 
+struct Environment;
 class interpreter_error : public std::runtime_error {
 public:
   Location location;
   interpreter_error(const std::string &msg, const Location &loc);
 };
 
+struct Function {
+  const FunctionStatement *declaration;
+  std::shared_ptr<Environment> env;
+};
+
+using Data = std::variant<int64_t, unsigned char, std::string, double, bool,
+                          std::vector<Value>, std::shared_ptr<Function>>;
+
+struct RuntimeValue {
+  Datatype type;
+  Data data;
+  RuntimeValue(const Value &value);
+  RuntimeValue(const Datatype &type, const Data &data);
+  RuntimeValue();
+};
+
 struct Environment {
-  std::unordered_map<std::string, Value> values = {};
+  std::unordered_map<std::string, RuntimeValue> values = {};
   std::shared_ptr<Environment> parent = nullptr;
-  Value get(const std::string &name);
-  Value *getPointer(const std::string &name);
-  void set(const std::string &name, const Value &value);
+  RuntimeValue get(const std::string &name);
+  RuntimeValue *getPointer(const std::string &name);
+  void set(const std::string &name, const RuntimeValue &value);
 };
 
 class Interpreter {
@@ -32,36 +49,49 @@ private:
   void expression(const ExpressionStmt &stmt);
   void whileloop(const While &stmt);
   void forloop(const For &stmt);
-  void forbody(Value *&Initial, const short &direction, const For &stmt);
+  void forbody(RuntimeValue *&Initial, const short &direction, const For &stmt);
   void ifStatement(const IfStatement &stmt);
-  double toDouble(const Value &value, const Location &loc);
-  int64_t toInt(const Value &value, const Location &loc);
-  std::string toString(const Value &value, const Location &loc);
-  unsigned char toChar(const Value &value, const Location &loc);
-  Value convertString(const Cast &expr);
-  bool isNumeric(const Value &value);
-  bool isTrue(const Value &value, const Location &loc);
-  Value eval(const Expression &expr);
-  Value evalNegative(const Unary &expr);
-  Value evalPreIncr(const Unary &expr);
-  Value evalPreDecr(const Unary &expr);
-  Value evalPostIncr(const Unary &expr);
-  Value evalPostDecr(const Unary &expr);
-  Value evalDef(const Binary &expr);
-  Value evalAdd(const Value &left, const Value &right, const Location &loc);
-  Value evalSub(const Value &left, const Value &right, const Location &loc);
-  Value evalMul(const Value &left, const Value &right, const Location &loc);
-  Value evalDiv(const Value &left, const Value &right, const Location &loc);
-  Value evalMod(const Value &left, const Value &right, const Location &loc);
-  Value evalGr(const Value &left, const Value &right, const Location &loc);
-  Value evalLs(const Value &left, const Value &right, const Location &loc);
-  Value evalEq(const Value &left, const Value &right, const Location &loc);
-  Value evalNq(const Value &left, const Value &right, const Location &loc);
-  Value evalGe(const Value &left, const Value &right, const Location &loc);
-  Value evalLe(const Value &left, const Value &right, const Location &loc);
+  void function(const FunctionStatement &stmt);
+  double toDouble(const RuntimeValue &value, const Location &loc);
+  int64_t toInt(const RuntimeValue &value, const Location &loc);
+  std::string toString(const RuntimeValue &value, const Location &loc);
+  unsigned char toChar(const RuntimeValue &value, const Location &loc);
+  RuntimeValue convertString(const Cast &expr);
+  bool isNumeric(const RuntimeValue &value);
+  bool isTrue(const RuntimeValue &value, const Location &loc);
+  RuntimeValue eval(const Expression &expr);
+  RuntimeValue evalNegative(const Unary &expr);
+  RuntimeValue evalPreIncr(const Unary &expr);
+  RuntimeValue evalPreDecr(const Unary &expr);
+  RuntimeValue evalPostIncr(const Unary &expr);
+  RuntimeValue evalPostDecr(const Unary &expr);
+  RuntimeValue evalDef(const Binary &expr);
+  RuntimeValue evalAdd(const RuntimeValue &left, const RuntimeValue &right,
+                       const Location &loc);
+  RuntimeValue evalSub(const RuntimeValue &left, const RuntimeValue &right,
+                       const Location &loc);
+  RuntimeValue evalMul(const RuntimeValue &left, const RuntimeValue &right,
+                       const Location &loc);
+  RuntimeValue evalDiv(const RuntimeValue &left, const RuntimeValue &right,
+                       const Location &loc);
+  RuntimeValue evalMod(const RuntimeValue &left, const RuntimeValue &right,
+                       const Location &loc);
+  RuntimeValue evalGr(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
+  RuntimeValue evalLs(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
+  RuntimeValue evalEq(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
+  RuntimeValue evalNq(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
+  RuntimeValue evalGe(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
+  RuntimeValue evalLe(const RuntimeValue &left, const RuntimeValue &right,
+                      const Location &loc);
   void addScope();
   void popScope();
-  Value validCheck(const Value &value, const Location &loc,
-                   const std::string &name);
-  Value *validCheck(Value *ptr, const Location &loc, const std::string &name);
+  RuntimeValue validCheck(const RuntimeValue &value, const Location &loc,
+                          const std::string &name);
+  RuntimeValue *validCheck(RuntimeValue *ptr, const Location &loc,
+                           const std::string &name);
 };

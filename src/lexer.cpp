@@ -276,6 +276,9 @@ bool Lexer::isSeparator() {
   case '}':
     sep = Separator::RightCurlyBracket;
     break;
+  case ',':
+    sep = Separator::Comma;
+    break;
   }
   if (sep != Separator::Invalid) {
     tokens.back().emplace_back(TokenType::Separator, static_cast<uint8_t>(sep),

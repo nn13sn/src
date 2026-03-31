@@ -13,6 +13,7 @@ enum class Datatype : uint8_t {
   Double,
   Bool,
   Array,
+  Function,
   Invalid
 };
 
@@ -53,6 +54,7 @@ enum class Separator : uint8_t {
   RightSquareBracket,
   LeftCurlyBracket,
   RightCurlyBracket,
+  Comma,
   Invalid
 };
 
@@ -109,6 +111,12 @@ struct For : Statement {
   std::unique_ptr<Expression> step = nullptr;
   std::unique_ptr<Expression> Initialvalue;
   std::unique_ptr<Expression> Finalvalue;
+  std::unique_ptr<Program> Instructions;
+};
+
+struct FunctionStatement : Statement {
+  std::string name;
+  std::vector<std::string> parameters;
   std::unique_ptr<Program> Instructions;
 };
 
