@@ -39,6 +39,7 @@ enum class Keyword : uint8_t {
   While,
   For,
   Function,
+  Return,
   Invalid
 };
 
@@ -55,8 +56,9 @@ struct Token {
 class Lexer {
   static constexpr std::array<std::string_view,
                               static_cast<size_t>(Keyword::Invalid)>
-      keywords{"if",  "else", "true", "false",  "in",    "out", "double",
-               "int", "char", "bool", "string", "while", "for", "function"};
+      keywords{"if",     "else",   "true", "false",    "in",
+               "out",    "double", "int",  "char",     "bool",
+               "string", "while",  "for",  "function", "return"};
   uint8_t IsKeyword(const std::string_view lexeme);
   std::vector<std::string> Initialcode;
   std::vector<std::vector<Token>> tokens;

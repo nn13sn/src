@@ -120,6 +120,10 @@ struct FunctionStatement : Statement {
   std::unique_ptr<Program> Instructions;
 };
 
+struct ReturnStatement : Statement {
+  std::unique_ptr<Expression> expr;
+};
+
 struct exprValue : Expression {
   Value value;
 };

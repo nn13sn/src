@@ -1,6 +1,7 @@
 
 function sum(a,b){
 a+b
+return a+b
 }
 second = 2
 first = 1
@@ -22,6 +23,6 @@ out(-logic)
 out("\n")
 value = char(47)
 out(value)
-
+return 
 
 

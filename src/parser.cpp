@@ -426,6 +426,17 @@ std::unique_ptr<Statement> Parser::ParseFunction() {
   return stmt;
 }
 
+std::unique_ptr<Statement> Parser::ParseReturn() {
+  auto stmt = std::make_unique<ReturnStatement>();
+  stmt->location.line = advance().lineID;
+  if (isEnd()) {
+    stmt->expr = nullptr;
+    return stmt;
+  }
+  stmt->expr = MakeExpression();
+  return stmt;
+}
+
 std::unique_ptr<Statement> Parser::MakeStatement() {
   if (Check(Keyword::Out))
     return ParseOutput();
@@ -444,6 +455,8 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
     return ParseFor();
   else if (Check(Keyword::Function))
     return ParseFunction();
+  else if (Check(Keyword::Return))
+    return ParseReturn();
   SyntaxErr("Cannot match the Syntax");
   return nullptr;
 }

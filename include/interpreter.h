@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 struct Environment;
+
 class interpreter_error : public std::runtime_error {
 public:
   Location location;
@@ -27,6 +28,10 @@ struct RuntimeValue {
   RuntimeValue(const Value &value);
   RuntimeValue(const Datatype &type, const Data &data);
   RuntimeValue();
+};
+
+struct ReturnException {
+  RuntimeValue value;
 };
 
 struct Environment {
@@ -52,6 +57,7 @@ private:
   void forbody(RuntimeValue *&Initial, const short &direction, const For &stmt);
   void ifStatement(const IfStatement &stmt);
   void function(const FunctionStatement &stmt);
+  void returnStatement(const ReturnStatement &stmt);
   double toDouble(const RuntimeValue &value, const Location &loc);
   int64_t toInt(const RuntimeValue &value, const Location &loc);
   std::string toString(const RuntimeValue &value, const Location &loc);

@@ -1,6 +1,8 @@
 #include "interpreter.h"
 #include "AST.h"
 
+bool insidefunction = false;
+
 interpreter_error::interpreter_error(const std::string &msg,
                                      const Location &loc)
     : std::runtime_error(msg) {
@@ -17,7 +19,10 @@ RuntimeValue::RuntimeValue(const Datatype &type, const Data &data) {
   this->data = data;
 }
 
-RuntimeValue::RuntimeValue() {};
+RuntimeValue::RuntimeValue() {
+  type = Datatype::Invalid;
+  data = NULL;
+};
 // I need a default constructor because when std::unordered_map creates an
 // empty object first and only then changes it
 
@@ -693,6 +698,14 @@ void Interpreter::function(const FunctionStatement &stmt) {
   environment->set(stmt.name, Func);
 }
 
+void Interpreter::returnStatement(const ReturnStatement &stmt) {
+  if (insidefunction)
+    throw ReturnException(stmt.expr ? eval(*stmt.expr) : RuntimeValue());
+  else
+    throw interpreter_error("Return Statement must be used inside the function",
+                            stmt.location);
+}
+
 void Interpreter::matchStatement(const Statement &stmt) {
   if (auto a = dynamic_cast<const Output *>(&stmt))
     output(*a);
@@ -708,6 +721,8 @@ void Interpreter::matchStatement(const Statement &stmt) {
     forloop(*a);
   else if (auto a = dynamic_cast<const FunctionStatement *>(&stmt))
     function(*a);
+  else if (auto a = dynamic_cast<const ReturnStatement *>(&stmt))
+    returnStatement(*a);
 }
 
 void Interpreter::execute(const Program &program) {
