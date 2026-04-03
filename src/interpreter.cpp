@@ -1,5 +1,6 @@
 #include "interpreter.h"
 #include "AST.h"
+#include <memory>
 
 bool insidefunction = false;
 
@@ -86,6 +87,8 @@ RuntimeValue Interpreter::eval(const Expression &expr) {
     return a->value;
   else if (auto a = dynamic_cast<const Variable *>(&expr)) {
     return validCheck(environment->get(a->name), a->location, a->name);
+  } else if (auto a = dynamic_cast<const FunctionCall *>(&expr)) {
+    return evalFunctionCall(*a);
   } else if (auto a = dynamic_cast<const Binary *>(&expr)) {
     switch (a->op) {
     case Operator::Add:
@@ -165,6 +168,43 @@ RuntimeValue Interpreter::eval(const Expression &expr) {
   }
   throw interpreter_error("Cannot recognize the expression type",
                           expr.location);
+}
+
+RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
+  auto previous = environment;
+  bool previousinside = insidefunction;
+  try {
+    auto func = validCheck(environment->getPointer(expr.name), expr.location,
+                           expr.name);
+    if (func->type != Datatype::Function)
+      throw interpreter_error(expr.name + " is not a function to call",
+                              expr.location);
+    auto realfunc = std::get<std::shared_ptr<Function>>(func->data);
+    if (realfunc->declaration->parameters.size() != expr.parameters.size())
+      throw interpreter_error(
+          "Expected paramters: " +
+              std::to_string(realfunc->declaration->parameters.size()) +
+              " and given parameters are " +
+              std::to_string(expr.parameters.size()),
+          expr.location);
+    environment = std::make_shared<Environment>(Environment{{}, nullptr});
+    insidefunction = true;
+    for (size_t i = 0; i < expr.parameters.size(); i++) {
+      environment->set(realfunc->declaration->parameters[i],
+                       eval(*expr.parameters[i]));
+    }
+    for (size_t i = 0;
+         i < realfunc->declaration->Instructions->statements.size(); i++) {
+      matchStatement(*realfunc->declaration->Instructions->statements[i]);
+    }
+    environment = previous;
+    insidefunction = previousinside;
+    return RuntimeValue();
+  } catch (const ReturnException &exc) {
+    environment = previous;
+    insidefunction = previousinside;
+    return exc.value;
+  }
 }
 
 bool Interpreter::isNumeric(const RuntimeValue &value) {

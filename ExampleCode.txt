@@ -3,6 +3,10 @@ function sum(a,b){
 a+b
 return a+b
 }
+
+function print(){
+out("\nfunction works\n")
+}
 second = 2
 first = 1
 operator = '+'
@@ -23,6 +27,7 @@ out(-logic)
 out("\n")
 value = char(47)
 out(value)
-return 
-
-
+a = sum(1,2)
+out("\n") 
+out(a)
+print()

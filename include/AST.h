@@ -116,7 +116,7 @@ struct For : Statement {
 
 struct FunctionStatement : Statement {
   std::string name;
-  std::vector<std::string> parameters;
+  std::vector<std::string> parameters = {};
   std::unique_ptr<Program> Instructions;
 };
 
@@ -130,6 +130,11 @@ struct exprValue : Expression {
 
 struct Variable : Expression {
   std::string name;
+};
+
+struct FunctionCall : Expression {
+  std::string name;
+  std::vector<std::unique_ptr<Expression>> parameters = {};
 };
 
 struct Binary : Expression {

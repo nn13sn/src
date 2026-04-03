@@ -66,6 +66,7 @@ private:
   bool isNumeric(const RuntimeValue &value);
   bool isTrue(const RuntimeValue &value, const Location &loc);
   RuntimeValue eval(const Expression &expr);
+  RuntimeValue evalFunctionCall(const FunctionCall &expr);
   RuntimeValue evalNegative(const Unary &expr);
   RuntimeValue evalPreIncr(const Unary &expr);
   RuntimeValue evalPreDecr(const Unary &expr);

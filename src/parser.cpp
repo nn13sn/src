@@ -3,12 +3,20 @@
 #include <memory>
 const Token &Parser::peek() const { return tokens[line][pos]; }
 
-Token &Parser::advance() {
+const Token &Parser::advance() {
   if (isEnd())
     throw std::invalid_argument(
         "Unexepected ending at line: " + std::to_string(peek().lineID) +
         "; column: " + std::to_string(peek().columnID));
   return tokens[line][pos++];
+}
+
+const Token &Parser::peekNext() {
+  if (isEnd())
+    throw std::invalid_argument(
+        "Unexepected ending at line: " + std::to_string(peek().lineID) +
+        "; column: " + std::to_string(peek().columnID));
+  return tokens[line][pos + 1];
 }
 
 Parser::Parser(std::vector<std::vector<Token>> &T) : tokens(T) {}
@@ -137,10 +145,32 @@ std::unique_ptr<Expression> Parser::SingleParse() {
     expr->location.column = advance().columnID;
     return expr;
   } else if (Check(TokenType::Identifier)) {
+    Location loc = {peek().columnID, peek().lineID};
+    std::string name = advance().lexeme;
+    if (Check(Separator::LeftParenthesis)) {
+      auto expr = std::make_unique<FunctionCall>();
+      expr->location = loc;
+      expr->name = name;
+      if (peekNext().type == TokenType::Separator &&
+          static_cast<Separator>(peekNext().value) ==
+              Separator::RightParenthesis) {
+        advance();
+        advance();
+        return expr;
+      }
+      do {
+        advance();
+        expr->parameters.push_back(MakeExpression());
+      } while (Check(Separator::Comma));
+      if (Check(Separator::RightParenthesis)) {
+        advance();
+        return expr;
+      }
+      SyntaxErr(CLOSEPARENTHESIS);
+    }
     auto expr = std::make_unique<Variable>();
-    expr->name = peek().lexeme;
-    expr->location.line = peek().lineID;
-    expr->location.column = advance().columnID;
+    expr->name = name;
+    expr->location = loc;
     return expr;
   } else if (Check(TokenType::Keyword)) {
     auto expr = std::make_unique<Cast>();

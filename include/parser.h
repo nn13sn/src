@@ -15,7 +15,8 @@ private:
   size_t pos = 0;
   void SyntaxErr(const std::string &err);
   const Token &peek() const;
-  Token &advance();
+  const Token &advance();
+  const Token &peekNext();
   std::vector<std::vector<Token>> &tokens;
   std::unique_ptr<Statement> MakeStatement();
   std::unique_ptr<Statement> ParseInput();
