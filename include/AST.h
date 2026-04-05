@@ -6,6 +6,8 @@
 #include <variant>
 #include <vector>
 
+enum class ExprType;
+
 enum class Datatype : uint8_t {
   Int,
   Char,
@@ -70,13 +72,29 @@ struct Location {
   size_t line;
 };
 
+enum class StmtType {
+  Input,
+  Output,
+  ExpressionStmt,
+  IfStatement,
+  While,
+  For,
+  FunctionStatement,
+  ReturnStatement,
+};
+
 struct AST {
   Location location;
   virtual ~AST() = default;
 };
 
-struct Statement : AST {};
-struct Expression : AST {};
+struct Statement : AST {
+  StmtType StatementType;
+};
+
+struct Expression : AST {
+  ExprType ExpressionType;
+};
 
 struct Program : AST {
   std::vector<std::unique_ptr<Statement>> statements;
@@ -123,6 +141,8 @@ struct FunctionStatement : Statement {
 struct ReturnStatement : Statement {
   std::unique_ptr<Expression> expr;
 };
+
+enum class ExprType { exprValue, Variable, FunctionCall, Binary, Unary, Cast };
 
 struct exprValue : Expression {
   Value value;

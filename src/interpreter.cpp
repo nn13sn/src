@@ -83,91 +83,102 @@ RuntimeValue *Interpreter::validCheck(RuntimeValue *ptr, const Location &loc,
 }
 
 RuntimeValue Interpreter::eval(const Expression &expr) {
-  if (auto a = dynamic_cast<const exprValue *>(&expr))
-    return a->value;
-  else if (auto a = dynamic_cast<const Variable *>(&expr)) {
-    return validCheck(environment->get(a->name), a->location, a->name);
-  } else if (auto a = dynamic_cast<const FunctionCall *>(&expr)) {
-    return evalFunctionCall(*a);
-  } else if (auto a = dynamic_cast<const Binary *>(&expr)) {
-    switch (a->op) {
+  switch (expr.ExpressionType) {
+  case ExprType::exprValue:
+    return static_cast<const exprValue &>(expr).value;
+  case ExprType::Variable: {
+    auto var = static_cast<const Variable &>(expr);
+    return validCheck(environment->get(var.name), var.location, var.name);
+  }
+  case ExprType::FunctionCall:
+    return evalFunctionCall(static_cast<const FunctionCall &>(expr));
+  case ExprType::Binary: {
+    const auto &a = static_cast<const Binary &>(expr);
+    switch (a.op) {
     case Operator::Add:
-      return evalAdd(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalAdd(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Sub:
-      return evalSub(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalSub(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Mul:
-      return evalMul(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalMul(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Div:
-      return evalDiv(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalDiv(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Mod:
-      return evalMod(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalMod(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Greater:
-      return evalGr(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalGr(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Less:
-      return evalLs(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalLs(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Equal:
-      return evalEq(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalEq(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::NotEqual:
-      return evalNq(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalNq(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::GreaterEq:
-      return evalGe(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalGe(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::LessEq:
-      return evalLe(eval(*(a->left)), eval(*(a->right)), a->location);
+      return evalLe(eval(*(a.left)), eval(*(a.right)), a.location);
     case Operator::Def:
-      return evalDef(*a);
+      return evalDef(a);
     case Operator::AND:
-      if (!isTrue(eval(*(a->left)), a->location))
+      if (!isTrue(eval(*(a.left)), a.location))
         return {Datatype::Bool, false};
-      if (!isTrue(eval(*(a->right)), a->location))
+      if (!isTrue(eval(*(a.right)), a.location))
         return {Datatype::Bool, false};
       return {Datatype::Bool, true};
     case Operator::OR:
-      if (isTrue(eval(*(a->left)), a->location))
+      if (isTrue(eval(*(a.left)), a.location))
         return {Datatype::Bool, true};
-      if (isTrue(eval(*(a->right)), a->location))
+      if (isTrue(eval(*(a.right)), a.location))
         return {Datatype::Bool, true};
       return {Datatype::Bool, false};
     default:
-      throw interpreter_error("A binary operator is expected", a->location);
-    }
-  } else if (auto a = dynamic_cast<const Cast *>(&expr)) {
-    auto b = eval(*a->expr);
-    if (b.type == Datatype::String)
-      return convertString(*a);
-    switch (a->castTo) {
-    case Datatype::Int:
-      return {Datatype::Int, toInt(b, a->location)};
-    case Datatype::Double:
-      return {Datatype::Double, toDouble(b, a->location)};
-    case Datatype::Char:
-      return {Datatype::Char, toChar(b, a->location)};
-    case Datatype::Bool:
-      return {Datatype::Bool, isTrue(b, a->location)};
-    case Datatype::String:
-      return {Datatype::String, toString(b, a->location)};
-    default:
-      throw interpreter_error("Invalid data type to be casted to", a->location);
-    }
-  } else if (auto a = dynamic_cast<const Unary *>(&expr)) {
-    switch (a->op) {
-    case Operator::Not:
-      return {Datatype::Bool, !isTrue(eval(*a->expr), a->location)};
-    case Operator::PreIncr:
-      return evalPreIncr(*a);
-    case Operator::PreDecr:
-      return evalPreDecr(*a);
-    case Operator::PostIncr:
-      return evalPostIncr(*a);
-    case Operator::PostDecr:
-      return evalPostDecr(*a);
-    case Operator::Sub:
-      return evalNegative(*a);
-    default:
-      throw interpreter_error("An unary operator is expected", a->location);
+      throw interpreter_error("A binary operator is expected", a.location);
     }
   }
-  throw interpreter_error("Cannot recognize the expression type",
-                          expr.location);
+  case ExprType::Cast: {
+    const auto &cast = static_cast<const Cast &>(expr);
+    auto b = eval(*cast.expr);
+    if (b.type == Datatype::String)
+      return convertString(cast);
+    switch (cast.castTo) {
+    case Datatype::Int:
+      return {Datatype::Int, toInt(b, cast.location)};
+    case Datatype::Double:
+      return {Datatype::Double, toDouble(b, cast.location)};
+    case Datatype::Char:
+      return {Datatype::Char, toChar(b, cast.location)};
+    case Datatype::Bool:
+      return {Datatype::Bool, isTrue(b, cast.location)};
+    case Datatype::String:
+      return {Datatype::String, toString(b, cast.location)};
+    default:
+      throw interpreter_error("Invalid data type to be casted to",
+                              cast.location);
+    }
+  }
+  case ExprType::Unary: {
+    const auto &unary = static_cast<const Unary &>(expr);
+    switch (unary.op) {
+    case Operator::Not:
+      return {Datatype::Bool, !isTrue(eval(*unary.expr), unary.location)};
+    case Operator::PreIncr:
+      return evalPreIncr(unary);
+    case Operator::PreDecr:
+      return evalPreDecr(unary);
+    case Operator::PostIncr:
+      return evalPostIncr(unary);
+    case Operator::PostDecr:
+      return evalPostDecr(unary);
+    case Operator::Sub:
+      return evalNegative(unary);
+    default:
+      throw interpreter_error("An unary operator is expected", unary.location);
+    }
+  }
+  default:
+    throw interpreter_error("Cannot recognize the expression type",
+                            expr.location);
+  }
 }
 
 RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
@@ -313,8 +324,9 @@ RuntimeValue Interpreter::evalNegative(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
-  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+  if (expr.expr->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*expr.expr);
+    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     if (isNumeric(*b)) {
       std::visit(
           [](auto &c) {
@@ -336,8 +348,9 @@ RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
-  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+  if (expr.expr->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*expr.expr);
+    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     if (isNumeric(*b)) {
       std::visit(
           [](auto &c) {
@@ -359,8 +372,9 @@ RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
-  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+  if (expr.expr->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*expr.expr);
+    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     if (isNumeric(*b)) {
       auto c = *b; // previous value
       std::visit(
@@ -383,8 +397,9 @@ RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
-  if (auto a = dynamic_cast<const Variable *>(expr.expr.get())) {
-    auto b = validCheck(environment->getPointer(a->name), a->location, a->name);
+  if (expr.expr->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*expr.expr);
+    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     if (isNumeric(*b)) {
       auto c = *b;
       std::visit(
@@ -407,9 +422,10 @@ RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalDef(const Binary &expr) {
-  if (auto a = dynamic_cast<const Variable *>(expr.left.get())) {
+  if (expr.left->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*expr.left);
     auto right = eval(*expr.right);
-    environment->set(a->name, right);
+    environment->set(a.name, right);
     return right;
   } else
     throw interpreter_error(
@@ -562,17 +578,20 @@ bool Interpreter::isTrue(const RuntimeValue &value, const Location &loc) {
 void Interpreter::expression(const ExpressionStmt &stmt) { eval(*stmt.expr); }
 
 void Interpreter::input(const Input &stmt) {
-  if (auto a = dynamic_cast<const Variable *>(stmt.input.get())) {
+  if (stmt.input->ExpressionType == ExprType::Variable) {
+    const auto &a = static_cast<const Variable &>(*stmt.input);
     std::string str;
     std::cin >> str;
-    environment->set(a->name, {Datatype::String, str});
+    environment->set(a.name, {Datatype::String, str});
     return;
-  } else if (auto a = dynamic_cast<const Cast *>(stmt.input.get())) {
-    if (auto b = dynamic_cast<const Variable *>(a->expr.get())) {
+  } else if (stmt.input->ExpressionType == ExprType::Cast) {
+    const auto &a = static_cast<const Cast &>(*stmt.input);
+    if (a.expr->ExpressionType == ExprType::Variable) {
+      const auto &b = static_cast<const Variable &>(*a.expr);
       std::string str;
       std::cin >> str;
-      environment->set(b->name, {Datatype::String, str});
-      environment->set(b->name, convertString(*a));
+      environment->set(b.name, {Datatype::String, str});
+      environment->set(b.name, convertString(a));
       return;
     }
   }
@@ -747,22 +766,26 @@ void Interpreter::returnStatement(const ReturnStatement &stmt) {
 }
 
 void Interpreter::matchStatement(const Statement &stmt) {
-  if (auto a = dynamic_cast<const Output *>(&stmt))
-    output(*a);
-  else if (auto a = dynamic_cast<const Input *>(&stmt))
-    input(*a);
-  else if (auto a = dynamic_cast<const ExpressionStmt *>(&stmt))
-    expression(*a);
-  else if (auto a = dynamic_cast<const IfStatement *>(&stmt))
-    ifStatement(*a);
-  else if (auto a = dynamic_cast<const While *>(&stmt))
-    whileloop(*a);
-  else if (auto a = dynamic_cast<const For *>(&stmt))
-    forloop(*a);
-  else if (auto a = dynamic_cast<const FunctionStatement *>(&stmt))
-    function(*a);
-  else if (auto a = dynamic_cast<const ReturnStatement *>(&stmt))
-    returnStatement(*a);
+  switch (stmt.StatementType) {
+  case StmtType::Output:
+    return output(static_cast<const Output &>(stmt));
+  case StmtType::Input:
+    return input(static_cast<const Input &>(stmt));
+  case StmtType::ExpressionStmt:
+    return expression(static_cast<const ExpressionStmt &>(stmt));
+  case StmtType::IfStatement:
+    return ifStatement(static_cast<const IfStatement &>(stmt));
+  case StmtType::While:
+    return whileloop(static_cast<const While &>(stmt));
+  case StmtType::For:
+    return forloop(static_cast<const For &>(stmt));
+  case StmtType::FunctionStatement:
+    return function(static_cast<const FunctionStatement &>(stmt));
+  case StmtType::ReturnStatement:
+    return returnStatement(static_cast<const ReturnStatement &>(stmt));
+  default:
+    throw interpreter_error("Unknwon Statement type", stmt.location);
+  }
 }
 
 void Interpreter::execute(const Program &program) {

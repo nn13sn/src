@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "AST.h"
 #include "lexer.h"
 #include <memory>
 const Token &Parser::peek() const { return tokens[line][pos]; }
@@ -139,6 +140,7 @@ std::unique_ptr<Expression> Parser::SingleParse() {
       Check(TokenType::Boolean) || Check(TokenType::Symbol) ||
       Check(TokenType::String)) {
     auto expr = std::make_unique<exprValue>();
+    expr->ExpressionType = ExprType::exprValue;
     expr->value.type = getDatatype();
     expr->value.data = getData();
     expr->location.line = peek().lineID;
@@ -149,6 +151,7 @@ std::unique_ptr<Expression> Parser::SingleParse() {
     std::string name = advance().lexeme;
     if (Check(Separator::LeftParenthesis)) {
       auto expr = std::make_unique<FunctionCall>();
+      expr->ExpressionType = ExprType::FunctionCall;
       expr->location = loc;
       expr->name = name;
       if (peekNext().type == TokenType::Separator &&
@@ -169,11 +172,13 @@ std::unique_ptr<Expression> Parser::SingleParse() {
       SyntaxErr(CLOSEPARENTHESIS);
     }
     auto expr = std::make_unique<Variable>();
+    expr->ExpressionType = ExprType::Variable;
     expr->name = name;
     expr->location = loc;
     return expr;
   } else if (Check(TokenType::Keyword)) {
     auto expr = std::make_unique<Cast>();
+    expr->ExpressionType = ExprType::Cast;
     expr->castTo = getDatatype(static_cast<Keyword>(peek().value));
     if (expr->castTo == Datatype::Invalid)
       SyntaxErr("A valid data type is expected");
@@ -211,6 +216,7 @@ Parser::ParseBinary(LowFunc ParseLower, const std::vector<Operator> &ops) {
          std::find(ops.begin(), ops.end(),
                    static_cast<Operator>(peek().value)) != ops.end()) {
     auto bin = std::make_unique<Binary>();
+    bin->ExpressionType = ExprType::Binary;
     bin->op = static_cast<Operator>(peek().value);
     bin->location.line = peek().lineID;
     bin->location.column = advance().columnID;
@@ -225,6 +231,7 @@ std::unique_ptr<Expression> Parser::MakeExpression() {
   auto expr = OrParse();
   if (Check(Operator::Def)) {
     auto def = std::make_unique<Binary>();
+    def->ExpressionType = ExprType::Binary;
     def->op = Operator::Def;
     def->location.line = peek().lineID;
     def->location.column = advance().columnID;
@@ -263,6 +270,7 @@ std::unique_ptr<Expression> Parser::UnaryParse() {
   if (Check(Operator::PreIncr) || Check(Operator::PreDecr) ||
       Check(Operator::Not) || Check(Operator::Sub)) {
     auto unary = std::make_unique<Unary>();
+    unary->ExpressionType = ExprType::Unary;
     unary->op = static_cast<Operator>(peek().value);
     unary->location.line = peek().lineID;
     unary->location.column = advance().columnID;
@@ -272,6 +280,7 @@ std::unique_ptr<Expression> Parser::UnaryParse() {
   auto expr = SingleParse();
   while (Check(Operator::PreIncr) || Check(Operator::PreDecr)) {
     auto unary = std::make_unique<Unary>();
+    unary->ExpressionType = ExprType::Unary;
     unary->op =
         Check(Operator::PreIncr) ? Operator::PostIncr : Operator::PostDecr;
     unary->location.line = peek().lineID;
@@ -284,6 +293,7 @@ std::unique_ptr<Expression> Parser::UnaryParse() {
 
 std::unique_ptr<Statement> Parser::ParseInput() {
   auto stmt = std::make_unique<Input>();
+  stmt->StatementType = StmtType::Input;
   stmt->location.line = advance().lineID;
   if (Check(Separator::LeftParenthesis))
     advance();
@@ -299,6 +309,7 @@ std::unique_ptr<Statement> Parser::ParseInput() {
 
 std::unique_ptr<Statement> Parser::ParseOutput() {
   auto stmt = std::make_unique<Output>();
+  stmt->StatementType = StmtType::Output;
   stmt->location.line = advance().lineID;
   if (Check(Separator::LeftParenthesis))
     advance();
@@ -314,6 +325,7 @@ std::unique_ptr<Statement> Parser::ParseOutput() {
 
 std::unique_ptr<Statement> Parser::ParseExpression() {
   auto stmt = std::make_unique<ExpressionStmt>();
+  stmt->StatementType = StmtType::ExpressionStmt;
   stmt->location.line = peek().lineID;
   stmt->expr = MakeExpression();
   return stmt;
@@ -321,6 +333,7 @@ std::unique_ptr<Statement> Parser::ParseExpression() {
 
 std::unique_ptr<Statement> Parser::ParseIfStatement() {
   auto stmt = std::make_unique<IfStatement>();
+  stmt->StatementType = StmtType::IfStatement;
   stmt->location.line = advance().lineID;
   if (Check(Separator::LeftParenthesis))
     advance();
@@ -349,6 +362,7 @@ std::unique_ptr<Statement> Parser::ParseIfStatement() {
       advance();
       stmt->elseStatement->expr = nullptr;
       stmt->elseStatement->Instructions = MakeBody();
+      stmt->elseStatement->StatementType = StmtType::IfStatement;
     } else if (Check(Keyword::If)) {
       stmt->elseStatement.reset(
           static_cast<IfStatement *>(ParseIfStatement().release()));
@@ -360,6 +374,7 @@ std::unique_ptr<Statement> Parser::ParseIfStatement() {
 
 std::unique_ptr<Statement> Parser::ParseWhile() {
   auto stmt = std::make_unique<While>();
+  stmt->StatementType = StmtType::While;
   stmt->location.line = advance().lineID;
   if (Check(Separator::LeftParenthesis))
     advance();
@@ -383,6 +398,7 @@ std::unique_ptr<Statement> Parser::ParseWhile() {
 
 std::unique_ptr<Statement> Parser::ParseFor() {
   auto stmt = std::make_unique<For>();
+  stmt->StatementType = StmtType::For;
   stmt->location.line = advance().lineID;
   if (Check(Separator::LeftParenthesis))
     advance();
@@ -427,6 +443,7 @@ std::unique_ptr<Statement> Parser::ParseFor() {
 
 std::unique_ptr<Statement> Parser::ParseFunction() {
   auto stmt = std::make_unique<FunctionStatement>();
+  stmt->StatementType = StmtType::FunctionStatement;
   stmt->location.line = advance().lineID;
   if (Check(TokenType::Identifier))
     stmt->name = advance().lexeme;
@@ -458,6 +475,7 @@ std::unique_ptr<Statement> Parser::ParseFunction() {
 
 std::unique_ptr<Statement> Parser::ParseReturn() {
   auto stmt = std::make_unique<ReturnStatement>();
+  stmt->StatementType = StmtType::ReturnStatement;
   stmt->location.line = advance().lineID;
   if (isEnd()) {
     stmt->expr = nullptr;
