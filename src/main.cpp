@@ -1,4 +1,5 @@
 #include "AST.h"
+#include "analyzer.h"
 #include "interpreter.h"
 #include "lexer.h"
 #include "parser.h"
@@ -17,6 +18,11 @@ int main(int argc, char *argv[]) {
     auto tokens = lexer.Tokenize();
     Parser parser(tokens);
     parser.Parse(program);
+    Analyzer analyzer;
+    if (analyzer.analyze(program) == AnalyzerError) {
+      analyzer.printErrors();
+      return -5;
+    }
     Interpreter interpreter;
     interpreter.execute(program);
     return 0;

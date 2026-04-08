@@ -7,6 +7,7 @@ add_executable(DoubleC
     src/lexer.cpp
     src/parser.cpp
     src/interpreter.cpp
+    src/analyzer.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)

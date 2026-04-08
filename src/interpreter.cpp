@@ -2,30 +2,11 @@
 #include "AST.h"
 #include <memory>
 
-bool insidefunction = false;
-
 interpreter_error::interpreter_error(const std::string &msg,
                                      const Location &loc)
     : std::runtime_error(msg) {
   location = loc;
 }
-
-RuntimeValue::RuntimeValue(const Value &value) {
-  type = value.type;
-  std::visit([this](const auto &data) { this->data = data; }, value.data);
-}
-
-RuntimeValue::RuntimeValue(const Datatype &type, const Data &data) {
-  this->type = type;
-  this->data = data;
-}
-
-RuntimeValue::RuntimeValue() {
-  type = Datatype::Invalid;
-  data = NULL;
-};
-// I need a default constructor because when std::unordered_map creates an
-// empty object first and only then changes it
 
 RuntimeValue Environment::get(const std::string &name) {
   if (auto value = values.find(name); value != values.end()) {
@@ -218,13 +199,6 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
   }
 }
 
-bool Interpreter::isNumeric(const RuntimeValue &value) {
-  if (value.type == Datatype::Int || value.type == Datatype::Char ||
-      value.type == Datatype::Double || value.type == Datatype::Bool)
-    return true;
-  return false;
-}
-
 RuntimeValue Interpreter::convertString(const Cast &expr) {
   try {
     auto b = eval(*expr.expr);
@@ -307,7 +281,7 @@ unsigned char Interpreter::toChar(const RuntimeValue &value,
 
 RuntimeValue Interpreter::evalNegative(const Unary &expr) {
   auto value = eval(*expr.expr);
-  if (isNumeric(value)) {
+  if (utils::isNumerical(value)) {
     std::visit(
         [](auto &c) {
           using T = std::decay_t<decltype(c)>;
@@ -327,7 +301,7 @@ RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (isNumeric(*b)) {
+    if (utils::isNumerical(*b)) {
       std::visit(
           [](auto &c) {
             using T = std::decay_t<decltype(c)>;
@@ -351,7 +325,7 @@ RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (isNumeric(*b)) {
+    if (utils::isNumerical(*b)) {
       std::visit(
           [](auto &c) {
             using T = std::decay_t<decltype(c)>;
@@ -375,7 +349,7 @@ RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (isNumeric(*b)) {
+    if (utils::isNumerical(*b)) {
       auto c = *b; // previous value
       std::visit(
           [](auto &c) {
@@ -400,7 +374,7 @@ RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (isNumeric(*b)) {
+    if (utils::isNumerical(*b)) {
       auto c = *b;
       std::visit(
           [](auto &c) {
@@ -435,7 +409,7 @@ RuntimeValue Interpreter::evalDef(const Binary &expr) {
 RuntimeValue Interpreter::evalAdd(const RuntimeValue &left,
                                   const RuntimeValue &right,
                                   const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"+\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -446,7 +420,7 @@ RuntimeValue Interpreter::evalAdd(const RuntimeValue &left,
 RuntimeValue Interpreter::evalSub(const RuntimeValue &left,
                                   const RuntimeValue &right,
                                   const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"-\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -457,7 +431,7 @@ RuntimeValue Interpreter::evalSub(const RuntimeValue &left,
 RuntimeValue Interpreter::evalMul(const RuntimeValue &left,
                                   const RuntimeValue &right,
                                   const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"*\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -468,7 +442,7 @@ RuntimeValue Interpreter::evalMul(const RuntimeValue &left,
 RuntimeValue Interpreter::evalDiv(const RuntimeValue &left,
                                   const RuntimeValue &right,
                                   const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"/\" cannot be used to such value type",
                             loc);
   auto DBLright = toDouble(right, loc);
@@ -492,7 +466,7 @@ RuntimeValue Interpreter::evalMod(const RuntimeValue &left,
 RuntimeValue Interpreter::evalGr(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \">\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -503,7 +477,7 @@ RuntimeValue Interpreter::evalGr(const RuntimeValue &left,
 RuntimeValue Interpreter::evalLs(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"<\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -514,7 +488,7 @@ RuntimeValue Interpreter::evalLs(const RuntimeValue &left,
 RuntimeValue Interpreter::evalGe(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \">=\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -525,7 +499,7 @@ RuntimeValue Interpreter::evalGe(const RuntimeValue &left,
 RuntimeValue Interpreter::evalLe(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"<=\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -536,7 +510,7 @@ RuntimeValue Interpreter::evalLe(const RuntimeValue &left,
 RuntimeValue Interpreter::evalEq(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"==\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -547,7 +521,7 @@ RuntimeValue Interpreter::evalEq(const RuntimeValue &left,
 RuntimeValue Interpreter::evalNq(const RuntimeValue &left,
                                  const RuntimeValue &right,
                                  const Location &loc) {
-  if (!isNumeric(left) || !isNumeric(right))
+  if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"!=\" cannot be used to such value type",
                             loc);
   if (left.type == Datatype::Double || right.type == Datatype::Double)
@@ -691,7 +665,8 @@ void Interpreter::forloop(const For &stmt) {
   short direction = -1;
   auto Initial = environment->getPointer(stmt.iterator);
   int64_t Final;
-  if (auto a = eval(*stmt.Finalvalue); isNumeric(a) && isNumeric(*Initial)) {
+  if (auto a = eval(*stmt.Finalvalue);
+      utils::isNumerical(a) && utils::isNumerical(*Initial)) {
     Final = toInt(a, stmt.location);
   } else
     throw interpreter_error(
@@ -784,7 +759,7 @@ void Interpreter::matchStatement(const Statement &stmt) {
   case StmtType::ReturnStatement:
     return returnStatement(static_cast<const ReturnStatement &>(stmt));
   default:
-    throw interpreter_error("Unknwon Statement type", stmt.location);
+    throw interpreter_error("Unknown Statement type", stmt.location);
   }
 }
 

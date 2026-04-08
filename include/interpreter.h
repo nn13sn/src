@@ -1,5 +1,7 @@
 #pragma once
 #include "AST.h"
+#include "runtime_value.h"
+#include "utils.h"
 #include <cmath>
 #include <iostream>
 #include <map>
@@ -19,17 +21,6 @@ struct Function {
   std::shared_ptr<Environment> env;
 };
 
-using Data = std::variant<int64_t, unsigned char, std::string, double, bool,
-                          std::vector<Value>, std::shared_ptr<Function>>;
-
-struct RuntimeValue {
-  Datatype type;
-  Data data;
-  RuntimeValue(const Value &value);
-  RuntimeValue(const Datatype &type, const Data &data);
-  RuntimeValue();
-};
-
 struct ReturnException {
   RuntimeValue value;
 };
@@ -47,6 +38,7 @@ public:
   void execute(const Program &program);
 
 private:
+  bool insidefunction = false;
   std::shared_ptr<Environment> environment = std::make_shared<Environment>();
   void matchStatement(const Statement &stmt);
   void input(const Input &stmt);
@@ -63,7 +55,6 @@ private:
   std::string toString(const RuntimeValue &value, const Location &loc);
   unsigned char toChar(const RuntimeValue &value, const Location &loc);
   RuntimeValue convertString(const Cast &expr);
-  bool isNumeric(const RuntimeValue &value);
   bool isTrue(const RuntimeValue &value, const Location &loc);
   RuntimeValue eval(const Expression &expr);
   RuntimeValue evalFunctionCall(const FunctionCall &expr);

@@ -1,5 +1,4 @@
 #include "lexer.h"
-#include <string>
 
 void Lexer::readFile(std::string name) {
   std::string line;

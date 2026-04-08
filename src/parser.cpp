@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "AST.h"
 #include "lexer.h"
+#include "utils.h"
 #include <memory>
 const Token &Parser::peek() const { return tokens[line][pos]; }
 
@@ -413,10 +414,9 @@ std::unique_ptr<Statement> Parser::ParseFor() {
     stmt->Initialvalue = ParseMidTerm();
   } else
     stmt->Initialvalue = nullptr;
-  if (Check(Operator::Arrow) || Check(Operator::ArrowEq) ||
-      Check(Operator::NotEqual) || Check(Operator::Greater) ||
-      Check(Operator::Less) || Check(Operator::GreaterEq) ||
-      Check(Operator::LessEq)) {
+  if (Check(TokenType::Operator) &&
+      (utils::isArrow(static_cast<Operator>(peek().value)) ||
+       utils::isLogical(static_cast<Operator>(peek().value)))) {
     stmt->op = static_cast<Operator>(advance().value);
     stmt->Finalvalue = MakeExpression();
   } else
