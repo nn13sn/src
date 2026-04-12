@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#define MAX_ERROR_NUMBER 20
 
 enum class ExprType;
 
@@ -81,6 +82,7 @@ enum class StmtType {
   For,
   FunctionStatement,
   ReturnStatement,
+  BlockStatement
 };
 
 struct AST {
@@ -140,6 +142,10 @@ struct FunctionStatement : Statement {
 
 struct ReturnStatement : Statement {
   std::unique_ptr<Expression> expr;
+};
+
+struct BlockStatement : Statement {
+  std::unique_ptr<Program> instructions;
 };
 
 enum class ExprType { exprValue, Variable, FunctionCall, Binary, Unary, Cast };

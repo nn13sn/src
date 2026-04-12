@@ -617,6 +617,14 @@ void Interpreter::ifStatement(const IfStatement &stmt) {
   }
 }
 
+void Interpreter::block(const BlockStatement &stmt) {
+  addScope();
+  for (const auto &instr : stmt.instructions->statements) {
+    matchStatement(*instr);
+  }
+  popScope();
+}
+
 void Interpreter::whileloop(const While &stmt) {
   while (isTrue(eval(*stmt.expr), stmt.location)) {
     addScope();
@@ -758,6 +766,8 @@ void Interpreter::matchStatement(const Statement &stmt) {
     return function(static_cast<const FunctionStatement &>(stmt));
   case StmtType::ReturnStatement:
     return returnStatement(static_cast<const ReturnStatement &>(stmt));
+  case StmtType::BlockStatement:
+    return block(static_cast<const BlockStatement &>(stmt));
   default:
     throw interpreter_error("Unknown Statement type", stmt.location);
   }

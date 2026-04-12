@@ -186,10 +186,10 @@ signed char Analyzer::analyze(const Program &program) {
 }
 
 void Analyzer::printErrors() {
+  std::cerr << "Semantic Error(s):\n";
   for (auto &err : errors) {
     std::cerr << "Line " << err.loc.line;
-    if (err.loc.column != 0)
-      std::cerr << ", column " << err.loc.column;
+    std::cerr << ", column " << err.loc.column;
     std::cerr << ": " + err.err + ".\n";
   }
 }

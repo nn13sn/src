@@ -50,6 +50,7 @@ private:
   void ifStatement(const IfStatement &stmt);
   void function(const FunctionStatement &stmt);
   void returnStatement(const ReturnStatement &stmt);
+  void block(const BlockStatement &stmt);
   double toDouble(const RuntimeValue &value, const Location &loc);
   int64_t toInt(const RuntimeValue &value, const Location &loc);
   std::string toString(const RuntimeValue &value, const Location &loc);

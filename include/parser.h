@@ -8,6 +8,15 @@
 #define OPENPARENTHESIS "Expected \"(\""
 #define CLOSEPARENTHESIS "Expected \")\""
 #define OPENCURLYBRACKET "Expected \"{\""
+#define PARSER_OK 1
+#define PARSER_ERROR -1
+
+struct ParserError {
+  std::string err;
+  Location loc;
+  ParserError(const std::string &error, const Location &location)
+      : err(error), loc(location) {};
+};
 
 class Parser {
 private:
@@ -17,11 +26,14 @@ private:
   const Token &peek() const;
   const Token &advance();
   const Token &peekNext();
+  bool getToBracket();
   std::vector<std::vector<Token>> &tokens;
+  std::vector<ParserError> errors = {};
   std::unique_ptr<Statement> MakeStatement();
   std::unique_ptr<Statement> ParseInput();
   std::unique_ptr<Statement> ParseOutput();
   std::unique_ptr<Statement> ParseExpression();
+  std::unique_ptr<Statement> ParseBlock();
   std::unique_ptr<Statement> ParseIfStatement();
   std::unique_ptr<Statement> ParseWhile();
   std::unique_ptr<Statement> ParseFor();
@@ -54,5 +66,6 @@ private:
 
 public:
   Parser(std::vector<std::vector<Token>> &T);
-  void Parse(Program &program);
+  signed char Parse(Program &program);
+  void printErrors();
 };

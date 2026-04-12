@@ -7,17 +7,13 @@ const Token &Parser::peek() const { return tokens[line][pos]; }
 
 const Token &Parser::advance() {
   if (isEnd())
-    throw std::invalid_argument(
-        "Unexepected ending at line: " + std::to_string(peek().lineID) +
-        "; column: " + std::to_string(peek().columnID));
+    SyntaxErr("Unexepected end of the line");
   return tokens[line][pos++];
 }
 
 const Token &Parser::peekNext() {
   if (isEnd())
-    throw std::invalid_argument(
-        "Unexepected ending at line: " + std::to_string(peek().lineID) +
-        "; column: " + std::to_string(peek().columnID));
+    SyntaxErr("Unexepected end of the line");
   return tokens[line][pos + 1];
 }
 
@@ -26,9 +22,7 @@ Parser::Parser(std::vector<std::vector<Token>> &T) : tokens(T) {}
 bool Parser::isEnd() { return peek().type == TokenType::End; }
 
 void Parser::SyntaxErr(const std::string &err) {
-  throw std::invalid_argument(err +
-                              " at line: " + std::to_string(peek().lineID) +
-                              "; column: " + std::to_string(peek().columnID));
+  throw ParserError(err, Location(peek().columnID, peek().lineID));
 }
 
 bool Parser::Check(TokenType type) { return type == peek().type; }
@@ -55,6 +49,17 @@ bool Parser::eatEnd() {
     line++;
     pos = 0;
     return true;
+  }
+  return false;
+}
+
+bool Parser::getToBracket() {
+  while (!isEnd()) {
+    if (Check(Separator::LeftCurlyBracket))
+      return true;
+    if (Check(Separator::RightCurlyBracket))
+      return false;
+    advance();
   }
   return false;
 }
@@ -114,7 +119,7 @@ std::unique_ptr<Program> Parser::MakeBody() {
   eatEnd();
   while (true) {
     if (line >= tokens.size()) {
-      line--;
+      line = tokens.size() - 1;
       pos = tokens[line].size() - 1;
       SyntaxErr("Expected \"}\"");
     }
@@ -123,8 +128,16 @@ std::unique_ptr<Program> Parser::MakeBody() {
     body->statements.push_back(MakeStatement());
     if (Check(Separator::RightCurlyBracket))
       break;
-    else if (!eatEnd() && pos != 0)
-      SyntaxErr("End of the line is expected");
+    else if (!eatEnd() && pos != 0) {
+      errors.emplace_back("End of the statement is expected",
+                          Location(peek().columnID, peek().lineID));
+      if (getToBracket())
+        body->statements.push_back(ParseBlock());
+      if (Check(Separator::RightCurlyBracket))
+        break;
+      else
+        eatEnd();
+    }
   }
   advance();
   if (isEnd()) {
@@ -204,7 +217,7 @@ std::unique_ptr<Expression> Parser::SingleParse() {
       SyntaxErr(CLOSEPARENTHESIS);
     return expr;
   }
-  SyntaxErr("Invalid component of the expression");
+  SyntaxErr("A valid component of expression is expected");
   return nullptr;
 }
 
@@ -329,6 +342,14 @@ std::unique_ptr<Statement> Parser::ParseExpression() {
   stmt->StatementType = StmtType::ExpressionStmt;
   stmt->location.line = peek().lineID;
   stmt->expr = MakeExpression();
+  return stmt;
+}
+
+std::unique_ptr<Statement> Parser::ParseBlock() {
+  auto stmt = std::make_unique<BlockStatement>();
+  stmt->location.line = advance().lineID;
+  stmt->StatementType = StmtType::BlockStatement;
+  stmt->instructions = MakeBody();
   return stmt;
 }
 
@@ -486,33 +507,59 @@ std::unique_ptr<Statement> Parser::ParseReturn() {
 }
 
 std::unique_ptr<Statement> Parser::MakeStatement() {
-  if (Check(Keyword::Out))
-    return ParseOutput();
-  else if (Check(Keyword::In))
-    return ParseInput();
-  else if (Check(TokenType::Identifier) || Check(TokenType::Operator) ||
-           Check(TokenType::Separator) || Check(TokenType::String) ||
-           Check(TokenType::Boolean) || Check(TokenType::Double) ||
-           Check(TokenType::Symbol) || Check(TokenType::Number))
-    return ParseExpression();
-  else if (Check(Keyword::If))
-    return ParseIfStatement();
-  else if (Check(Keyword::While))
-    return ParseWhile();
-  else if (Check(Keyword::For))
-    return ParseFor();
-  else if (Check(Keyword::Function))
-    return ParseFunction();
-  else if (Check(Keyword::Return))
-    return ParseReturn();
-  SyntaxErr("Cannot match the Syntax");
-  return nullptr;
+  try {
+    if (Check(Keyword::Out))
+      return ParseOutput();
+    else if (Check(Keyword::In))
+      return ParseInput();
+    else if (Check(TokenType::Identifier) || Check(TokenType::Operator) ||
+             Check(TokenType::Separator) || Check(TokenType::String) ||
+             Check(TokenType::Boolean) || Check(TokenType::Double) ||
+             Check(TokenType::Symbol) || Check(TokenType::Number))
+      return ParseExpression();
+    else if (Check(Keyword::If))
+      return ParseIfStatement();
+    else if (Check(Keyword::While))
+      return ParseWhile();
+    else if (Check(Keyword::For))
+      return ParseFor();
+    else if (Check(Keyword::Function))
+      return ParseFunction();
+    else if (Check(Keyword::Return))
+      return ParseReturn();
+    else if (Check(Separator::LeftCurlyBracket))
+      return ParseBlock();
+    SyntaxErr("Cannot match the Syntax");
+    return nullptr;
+  } catch (const ParserError &err) {
+    errors.push_back(err);
+    if (getToBracket())
+      return ParseBlock();
+    return nullptr;
+  }
 }
 
-void Parser::Parse(Program &program) {
+signed char Parser::Parse(Program &program) {
   while (line < tokens.size()) {
     program.statements.push_back(MakeStatement());
-    if (!eatEnd() && pos != 0)
-      SyntaxErr("End of the line is expected");
+    if (!eatEnd() && pos != 0) {
+      errors.emplace_back("End of the line is expected",
+                          Location(peek().columnID, peek().lineID));
+      pos = 0;
+      line++;
+    }
+    if (errors.size() >= MAX_ERROR_NUMBER)
+      return PARSER_ERROR;
+  }
+  if (errors.size())
+    return PARSER_ERROR;
+  return PARSER_OK;
+}
+
+void Parser::printErrors() {
+  std::cerr << "Syntax Error(s):\n";
+  for (auto &err : errors) {
+    std::cerr << "Line " << err.loc.line << ", column " << err.loc.column;
+    std::cerr << ": " + err.err << '\n';
   }
 }
