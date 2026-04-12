@@ -71,6 +71,7 @@ class Lexer {
   bool isSeparator();
   char getEscapes(const char &c);
   void unexEnd();
+  std::vector<std::string> errors = {};
 
 public:
   std::vector<std::vector<Token>> Tokenize();

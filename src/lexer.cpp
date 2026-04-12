@@ -289,29 +289,43 @@ bool Lexer::isSeparator() {
 
 std::vector<std::vector<Token>> Lexer::Tokenize() {
   for (i = 0; i < Initialcode.size(); i++) {
-    if (Initialcode[i].size() == 0)
-      continue;
-    tokens.emplace_back();
-    for (pos = 0; pos < Initialcode[i].size(); pos++) {
-      if (std::isspace(Initialcode[i][pos]))
+    try {
+      if (Initialcode[i].size() == 0)
         continue;
-      else if (isLetter())
-        continue;
-      else if (isDigit())
-        continue;
-      else if (isText())
-        continue;
-      else if (isOperator())
-        continue;
-      else if (isSeparator())
-        continue;
-      else
-        throw std::invalid_argument("Invalid symbol at line " +
-                                    std::to_string(i) +
-                                    "; column: " + std::to_string(pos));
+      tokens.emplace_back();
+      for (pos = 0; pos < Initialcode[i].size(); pos++) {
+        if (std::isspace(Initialcode[i][pos]))
+          continue;
+        else if (isLetter())
+          continue;
+        else if (isDigit())
+          continue;
+        else if (isText())
+          continue;
+        else if (isOperator())
+          continue;
+        else if (isSeparator())
+          continue;
+        else
+          throw std::invalid_argument("Invalid symbol at line " +
+                                      std::to_string(i) +
+                                      "; column: " + std::to_string(pos));
+      }
+      tokens.back().emplace_back(TokenType::End, UINT8_MAX, "", i + 1,
+                                 Initialcode[i].size() + 1);
+    } catch (const std::invalid_argument &err) {
+      errors.push_back("Line " + std::to_string(i + 1) + ", column " +
+                       std::to_string(pos + 1) + " : " + err.what());
+      if (errors.size() >= 20)
+        break;
     }
-    tokens.back().emplace_back(TokenType::End, UINT8_MAX, "", i + 1,
-                               Initialcode[i].size() + 1);
+  }
+  if (errors.size()) {
+    std::cerr << "\nLexer Error(s):\n";
+    for (auto &err : errors) {
+      std::cerr << err << '\n';
+    }
+    std::exit(-1);
   }
   return tokens;
 }

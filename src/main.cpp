@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     Parser parser(tokens);
     if (parser.Parse(program) == PARSER_ERROR) {
       parser.printErrors();
-      return -1;
+      return -3;
     }
     Analyzer analyzer;
     if (analyzer.analyze(program) == AnalyzerError) {
@@ -37,9 +37,6 @@ int main(int argc, char *argv[]) {
               << " at line: " + std::to_string(err.location.line);
     std::cerr << "; column: " + std::to_string(err.location.column) << '\n';
     return -2;
-  } catch (const std::runtime_error &err) {
-    std::cerr << "Runtime error: " << err.what() << std::endl;
-    return -3;
   }
   return 0;
 }

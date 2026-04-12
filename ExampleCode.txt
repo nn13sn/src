@@ -7,21 +7,21 @@ return a+b
 function print(){
 out("\nfunction works\n")
 }
-second = 2+
+second = 2
 first = 1
 operator = '+'
 if(operator == '+' &&  first == 1 && second == 2) {out("works\n")}
 i = 10
 while(!(i<5)){
 	out("3\n")
-i--0
+i--
 }
 5 + 3 / 2
-for(i= -5 ->k 8 : ++i){
+for(i= -5 -> 8 : ++i){
 	for(y->10){
 		out(y)
 	}
-out("\n"); }
+out("\n") }
 logic = true
 out(-logic)
 out("\n")
@@ -29,5 +29,6 @@ value = char(47)
 out(value)
 a = sum(1,2)
 out("\n") 
+out('\nkl')
 out(a)
 print()
