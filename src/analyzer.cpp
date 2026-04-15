@@ -8,6 +8,8 @@ SemanticError::SemanticError(const std::string &err, const Location &loc) {
 }
 
 bool AnalyzerEnv::exists(const std::string &name) {
+  if (globals.find(name) != globals.end())
+    return true;
   if (variables.find(name) != variables.end())
     return true;
   if (parent)
@@ -31,7 +33,14 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
             "The definition operator can only be used to variables",
             a.location));
       AnalyzeExpression(*a.right);
-      env->variables.insert(static_cast<const Variable &>(*a.left).name);
+      if (isGlobal) {
+        if (!env->exists(static_cast<const Variable &>(*a.left).name))
+          env->globals.insert(static_cast<const Variable &>(*a.left).name);
+        else
+          errors.emplace_back("The variable was already declared before",
+                              a.left->location);
+      } else
+        env->variables.insert(static_cast<const Variable &>(*a.left).name);
       return;
     }
     AnalyzeExpression(*a.left);
@@ -129,7 +138,10 @@ void Analyzer::AnalyzeFor(const For &stmt) {
 }
 
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
-  env->variables.insert(stmt.name);
+  if (env->parent && !isGlobal)
+    env->variables.insert(stmt.name);
+  else
+    env->globals.insert(stmt.name);
   bool previous = insidefunction;
   insidefunction = true;
   newScope();
@@ -146,6 +158,31 @@ void Analyzer::AnalyzeReturn(const ReturnStatement &stmt) {
   if (!insidefunction)
     errors.emplace_back("The return must be used inside the function",
                         stmt.location);
+}
+
+void Analyzer::AnalyzeGlobal(const Global &stmt) {
+  isGlobal = true;
+  if (stmt.stmt->StatementType == StmtType::ExpressionStmt) {
+    const auto &expr = *static_cast<const ExpressionStmt &>(*stmt.stmt).expr;
+    if (expr.ExpressionType == ExprType::Binary) {
+      const auto &bin = static_cast<const Binary &>(expr);
+      if (bin.op == Operator::Def) {
+        AnalyzeExpression(bin);
+      } else
+        errors.emplace_back("A variable defintion is expected", stmt.location);
+    } else
+      errors.emplace_back("A variable defintion is expected", stmt.location);
+  } else if (stmt.stmt->StatementType == StmtType::FunctionStatement) {
+    AnalyzeFunction(static_cast<const FunctionStatement &>(*stmt.stmt));
+  } else
+    errors.emplace_back("A defintion is expected", stmt.location);
+  isGlobal = false;
+}
+
+void Analyzer::AnalyzeBlock(const BlockStatement &stmt) {
+  newScope();
+  analyze(*stmt.instructions);
+  removeScope();
 }
 
 signed char Analyzer::analyze(const Program &program) {
@@ -174,6 +211,12 @@ signed char Analyzer::analyze(const Program &program) {
       break;
     case StmtType::ReturnStatement:
       AnalyzeReturn(static_cast<const ReturnStatement &>(*stmt));
+      break;
+    case StmtType::Global:
+      AnalyzeGlobal(static_cast<const Global &>(*stmt));
+      break;
+    case StmtType::BlockStatement:
+      AnalyzeBlock(static_cast<const BlockStatement &>(*stmt));
       break;
     default:
       errors.push_back(SemanticError("Unknown Statement type", stmt->location));

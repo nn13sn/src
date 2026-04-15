@@ -27,10 +27,12 @@ struct ReturnException {
 
 struct Environment {
   std::unordered_map<std::string, RuntimeValue> values = {};
+  inline static std::unordered_map<std::string, RuntimeValue> globals = {};
   std::shared_ptr<Environment> parent = nullptr;
   RuntimeValue get(const std::string &name);
   RuntimeValue *getPointer(const std::string &name);
   void set(const std::string &name, const RuntimeValue &value);
+  bool newGlobal(const std::string &name, const RuntimeValue &value);
 };
 
 class Interpreter {
@@ -39,6 +41,7 @@ public:
 
 private:
   bool insidefunction = false;
+  bool isGlobal = false;
   std::shared_ptr<Environment> environment = std::make_shared<Environment>();
   void matchStatement(const Statement &stmt);
   void input(const Input &stmt);
@@ -51,6 +54,7 @@ private:
   void function(const FunctionStatement &stmt);
   void returnStatement(const ReturnStatement &stmt);
   void block(const BlockStatement &stmt);
+  void global(const Global &stmt);
   double toDouble(const RuntimeValue &value, const Location &loc);
   int64_t toInt(const RuntimeValue &value, const Location &loc);
   std::string toString(const RuntimeValue &value, const Location &loc);

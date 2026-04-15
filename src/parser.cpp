@@ -341,6 +341,7 @@ std::unique_ptr<Statement> Parser::ParseExpression() {
   auto stmt = std::make_unique<ExpressionStmt>();
   stmt->StatementType = StmtType::ExpressionStmt;
   stmt->location.line = peek().lineID;
+  stmt->location.column = peek().columnID;
   stmt->expr = MakeExpression();
   return stmt;
 }
@@ -465,6 +466,7 @@ std::unique_ptr<Statement> Parser::ParseFor() {
 std::unique_ptr<Statement> Parser::ParseFunction() {
   auto stmt = std::make_unique<FunctionStatement>();
   stmt->StatementType = StmtType::FunctionStatement;
+  stmt->location.column = peek().columnID;
   stmt->location.line = advance().lineID;
   if (Check(TokenType::Identifier))
     stmt->name = advance().lexeme;
@@ -506,16 +508,23 @@ std::unique_ptr<Statement> Parser::ParseReturn() {
   return stmt;
 }
 
+std::unique_ptr<Statement> Parser::ParseGlobal() {
+  auto stmt = std::make_unique<Global>();
+  stmt->StatementType = StmtType::Global;
+  stmt->location.line = advance().lineID;
+  stmt->stmt = MakeStatement();
+  return stmt;
+}
+
 std::unique_ptr<Statement> Parser::MakeStatement() {
   try {
     if (Check(Keyword::Out))
       return ParseOutput();
     else if (Check(Keyword::In))
       return ParseInput();
-    else if (Check(TokenType::Identifier) || Check(TokenType::Operator) ||
-             Check(TokenType::Separator) || Check(TokenType::String) ||
-             Check(TokenType::Boolean) || Check(TokenType::Double) ||
-             Check(TokenType::Symbol) || Check(TokenType::Number))
+    else if (Check(Separator::LeftCurlyBracket))
+      return ParseBlock();
+    else if (utils::isExpression(peek().type))
       return ParseExpression();
     else if (Check(Keyword::If))
       return ParseIfStatement();
@@ -527,8 +536,8 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
       return ParseFunction();
     else if (Check(Keyword::Return))
       return ParseReturn();
-    else if (Check(Separator::LeftCurlyBracket))
-      return ParseBlock();
+    else if (Check(Keyword::Global))
+      return ParseGlobal();
     SyntaxErr("Cannot match the Syntax");
     return nullptr;
   } catch (const ParserError &err) {

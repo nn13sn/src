@@ -1,4 +1,5 @@
 #pragma once
+#include "lexer.h"
 #include "runtime_value.h"
 // just some short helper functions here
 namespace utils {
@@ -19,6 +20,15 @@ inline bool isLogical(const Operator &op) {
 
 inline bool isArrow(const Operator &op) {
   if (op == Operator::Arrow || op == Operator::ArrowEq)
+    return true;
+  return false;
+}
+
+inline bool isExpression(const TokenType &type) {
+  if (type == TokenType::Identifier || type == TokenType::Operator ||
+      type == TokenType::Separator || type == TokenType::String ||
+      type == TokenType::Boolean || type == TokenType::Number ||
+      type == TokenType::Symbol || type == TokenType::Double)
     return true;
   return false;
 }

@@ -24,9 +24,7 @@ Token::Token(TokenType type, const uint8_t &value, std::string lexeme,
 
 void Lexer::unexEnd() {
   if (pos == Initialcode[i].size())
-    throw std::invalid_argument(
-        "Unexpected ending, at line: " + std::to_string(i) +
-        "; column: " + std::to_string(pos));
+    throw std::invalid_argument("Unexpected ending");
 }
 
 uint8_t Lexer::IsKeyword(const std::string_view lexeme) {
@@ -124,9 +122,7 @@ bool Lexer::isText() {
       pos++;
       char c = getEscapes(Initialcode[i][pos]);
       if (c == -1)
-        throw std::invalid_argument(
-            "Invalid Escape Sequence at line: " + std::to_string(i) +
-            "; column: " + std::to_string(pos));
+        throw std::invalid_argument("Invalid Escape Sequence");
       tokens.back().emplace_back(TokenType::Symbol, UINT8_MAX,
                                  std::string(1, c), i + 1, startpos + 1);
     } else {
@@ -135,9 +131,7 @@ bool Lexer::isText() {
                                  startpos + 1);
     }
     if (Initialcode[i][++pos] != '\'')
-      throw std::invalid_argument(
-          "Invalid argument for char, at line: " + std::to_string(i) +
-          "; column: " + std::to_string(pos));
+      throw std::invalid_argument("Invalid argument for char");
     return true;
   } else if (Initialcode[i][pos] == '"') {
     std::string str = "";
@@ -226,18 +220,14 @@ bool Lexer::isOperator() {
       ++pos;
       op = Operator::AND;
     } else
-      throw std::invalid_argument(
-          "Invalid operator at line: " + std::to_string(i) +
-          "; column: " + std::to_string(pos));
+      throw std::invalid_argument("Invalid operator");
     break;
   case '|':
     if (Initialcode[i][pos + 1] == '|') {
       ++pos;
       op = Operator::OR;
     } else
-      throw std::invalid_argument(
-          "Invalid operator at line: " + std::to_string(i) +
-          "; column: " + std::to_string(pos));
+      throw std::invalid_argument("Invalid operator");
     break;
   }
   if (op != Operator::Invalid) {
@@ -307,9 +297,7 @@ std::vector<std::vector<Token>> Lexer::Tokenize() {
         else if (isSeparator())
           continue;
         else
-          throw std::invalid_argument("Invalid symbol at line " +
-                                      std::to_string(i) +
-                                      "; column: " + std::to_string(pos));
+          throw std::invalid_argument("Invalid character");
       }
       tokens.back().emplace_back(TokenType::End, UINT8_MAX, "", i + 1,
                                  Initialcode[i].size() + 1);

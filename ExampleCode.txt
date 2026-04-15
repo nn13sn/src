@@ -1,11 +1,18 @@
+global c = 5
 in(char(symbol))
-function sum(a,b){
+global function sum(a,b){
 a+b
-return a+b
+return a+b+c
 }
-
 function print(){
+out(sum(3,4))
+out("\n")
 out("\nfunction works\n")
+}
+{
+ global function get(){
+out("\ngot here\n")
+}
 }
 second = 2
 first = 1
@@ -29,6 +36,10 @@ value = char(47)
 out(value)
 a = sum(1,2)
 out("\n") 
-out('\nkl')
 out(a)
 print()
+out(sum(2,3))
+{
+get()
+}
+

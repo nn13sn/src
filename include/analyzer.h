@@ -7,6 +7,7 @@
 #define AnalyzerError -1
 struct AnalyzerEnv {
   std::unordered_set<std::string> variables = {};
+  inline static std::unordered_set<std::string> globals = {};
   AnalyzerEnv *parent = nullptr;
   bool exists(const std::string &name);
 };
@@ -21,6 +22,7 @@ class Analyzer {
   std::vector<SemanticError> errors = {};
   AnalyzerEnv *env = new AnalyzerEnv;
   bool insidefunction = false;
+  bool isGlobal = false;
   void AnalyzeExpression(const Expression &expr);
   void AnalyzeInput(const Input &stmt);
   void AnalyzeOutput(const Output &stmt);
@@ -30,6 +32,8 @@ class Analyzer {
   void AnalyzeIf(const IfStatement &stmt);
   void AnalyzeFunction(const FunctionStatement &stmt);
   void AnalyzeReturn(const ReturnStatement &stmt);
+  void AnalyzeGlobal(const Global &stmt);
+  void AnalyzeBlock(const BlockStatement &stmt);
   void newScope();
   void removeScope();
 

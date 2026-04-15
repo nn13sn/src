@@ -82,7 +82,8 @@ enum class StmtType {
   For,
   FunctionStatement,
   ReturnStatement,
-  BlockStatement
+  BlockStatement,
+  Global
 };
 
 struct AST {
@@ -146,6 +147,10 @@ struct ReturnStatement : Statement {
 
 struct BlockStatement : Statement {
   std::unique_ptr<Program> instructions;
+};
+
+struct Global : Statement {
+  std::unique_ptr<Statement> stmt;
 };
 
 enum class ExprType { exprValue, Variable, FunctionCall, Binary, Unary, Cast };

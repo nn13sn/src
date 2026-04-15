@@ -9,6 +9,8 @@ interpreter_error::interpreter_error(const std::string &msg,
 }
 
 RuntimeValue Environment::get(const std::string &name) {
+  if (auto value = globals.find(name); value != globals.end())
+    return value->second;
   if (auto value = values.find(name); value != values.end()) {
     return value->second;
   }
@@ -18,6 +20,8 @@ RuntimeValue Environment::get(const std::string &name) {
 }
 
 RuntimeValue *Environment::getPointer(const std::string &name) {
+  if (auto value = globals.find(name); value != globals.end())
+    return &value->second;
   if (auto value = values.find(name); value != values.end()) {
     return &value->second;
   }
@@ -32,6 +36,15 @@ void Environment::set(const std::string &name, const RuntimeValue &value) {
     return;
   }
   values[name] = value;
+}
+
+bool Environment::newGlobal(const std::string &name,
+                            const RuntimeValue &value) {
+  if (!getPointer(name)) {
+    globals[name] = value;
+    return true;
+  }
+  return false;
 }
 
 void Interpreter::addScope() {
@@ -399,7 +412,12 @@ RuntimeValue Interpreter::evalDef(const Binary &expr) {
   if (expr.left->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.left);
     auto right = eval(*expr.right);
-    environment->set(a.name, right);
+    if (isGlobal) {
+      if (!environment->newGlobal(a.name, right))
+        throw interpreter_error("A variable was already declated",
+                                expr.location);
+    } else
+      environment->set(a.name, right);
     return right;
   } else
     throw interpreter_error(
@@ -737,7 +755,10 @@ void Interpreter::forloop(const For &stmt) {
 void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
                     std::make_shared<Function>(Function{&stmt, environment}));
-  environment->set(stmt.name, Func);
+  if (environment->parent && !isGlobal)
+    environment->set(stmt.name, Func);
+  else
+    environment->newGlobal(stmt.name, Func);
 }
 
 void Interpreter::returnStatement(const ReturnStatement &stmt) {
@@ -746,6 +767,27 @@ void Interpreter::returnStatement(const ReturnStatement &stmt) {
   else
     throw interpreter_error("Return Statement must be used inside the function",
                             stmt.location);
+}
+
+void Interpreter::global(const Global &stmt) {
+  isGlobal = true;
+  if (stmt.stmt->StatementType == StmtType::ExpressionStmt) {
+    const auto &insidestmt = static_cast<const ExpressionStmt &>(*stmt.stmt);
+    if (insidestmt.expr->ExpressionType == ExprType::Binary) {
+      const auto &expr = static_cast<const Binary &>(*insidestmt.expr);
+      if (expr.op == Operator::Def) {
+        eval(expr);
+      } else
+        throw interpreter_error("A variable defintion is expected",
+                                expr.left->location);
+    } else
+      throw interpreter_error("A variable defintion is expected",
+                              insidestmt.expr->location);
+  } else if (stmt.stmt->StatementType == StmtType::FunctionStatement) {
+    function(static_cast<const FunctionStatement &>(*stmt.stmt));
+  } else
+    throw interpreter_error("A defintion is expected", stmt.location);
+  isGlobal = false;
 }
 
 void Interpreter::matchStatement(const Statement &stmt) {
@@ -768,6 +810,8 @@ void Interpreter::matchStatement(const Statement &stmt) {
     return returnStatement(static_cast<const ReturnStatement &>(stmt));
   case StmtType::BlockStatement:
     return block(static_cast<const BlockStatement &>(stmt));
+  case StmtType::Global:
+    return global(static_cast<const Global &>(stmt));
   default:
     throw interpreter_error("Unknown Statement type", stmt.location);
   }
