@@ -4,10 +4,11 @@ global function sum(a,b){
 a+b
 return a+b+c
 }
-function print(){
+dynamic function print(){
 out(sum(3,4))
 out("\n")
 out("\nfunction works\n")
+out(a)
 }
 {
  global function get(){
@@ -24,13 +25,13 @@ while(!(i<5)){
 i--
 }
 5 + 3 / 2
-for(i= -5 -> 8 : ++i){
+dynamic for(i= -5 -> 8 : ++i){
 	for(y->10){
 		out(y)
 	}
 out("\n") }
 logic = true
-out(-logic)
+dynamic out(-logic)
 out("\n")
 value = char(47)
 out(value)

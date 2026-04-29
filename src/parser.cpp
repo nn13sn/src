@@ -509,10 +509,22 @@ std::unique_ptr<Statement> Parser::ParseReturn() {
 }
 
 std::unique_ptr<Statement> Parser::ParseGlobal() {
-  auto stmt = std::make_unique<Global>();
-  stmt->StatementType = StmtType::Global;
-  stmt->location.line = advance().lineID;
-  stmt->stmt = MakeStatement();
+  advance();
+  auto stmt = MakeStatement();
+  if (stmt->mods & MOD_GLOBAL)
+    SyntaxErr("Duplication of dynamic modifier");
+  else
+    stmt->mods |= MOD_GLOBAL;
+  return stmt;
+}
+
+std::unique_ptr<Statement> Parser::ParseDynamic() {
+  advance();
+  auto stmt = MakeStatement();
+  if (stmt->mods & MOD_DYNAMIC)
+    SyntaxErr("Duplication of dynamic modifier");
+  else
+    stmt->mods |= MOD_DYNAMIC;
   return stmt;
 }
 
@@ -538,6 +550,8 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
       return ParseReturn();
     else if (Check(Keyword::Global))
       return ParseGlobal();
+    else if (Check(Keyword::Dynamic))
+      return ParseDynamic();
     SyntaxErr("Cannot match the Syntax");
     return nullptr;
   } catch (const ParserError &err) {

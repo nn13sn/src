@@ -1,6 +1,8 @@
 #include "analyzer.h"
 #include "AST.h"
 #include "lexer.h"
+#include "utils.h"
+#include <tuple>
 
 SemanticError::SemanticError(const std::string &err, const Location &loc) {
   this->err = err;
@@ -18,9 +20,12 @@ bool AnalyzerEnv::exists(const std::string &name) {
 }
 
 void Analyzer::AnalyzeExpression(const Expression &expr) {
+  if (!utils::CheckModifiers(expr, currentmodifers))
+    errors.emplace_back("Invalid Modifier", expr.location);
   switch (expr.ExpressionType) {
   case ExprType::Variable: {
-    if (!env->exists(static_cast<const Variable &>(expr).name))
+    if (!ignoreVariables &&
+        !env->exists(static_cast<const Variable &>(expr).name))
       return errors.push_back(
           SemanticError("Undefined variable", expr.location));
     return;
@@ -33,7 +38,7 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
             "The definition operator can only be used to variables",
             a.location));
       AnalyzeExpression(*a.right);
-      if (isGlobal) {
+      if (utils::isGlobal(currentmodifers)) {
         if (!env->exists(static_cast<const Variable &>(*a.left).name))
           env->globals.insert(static_cast<const Variable &>(*a.left).name);
         else
@@ -83,6 +88,8 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
     }
     return;
   }
+  default:
+    errors.emplace_back("Unrecongnized Expression", expr.location);
   }
 }
 
@@ -138,18 +145,24 @@ void Analyzer::AnalyzeFor(const For &stmt) {
 }
 
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
-  if (env->parent && !isGlobal)
+  int8_t previous = 0;
+  if (env->parent && !utils::isGlobal(currentmodifers))
     env->variables.insert(stmt.name);
   else
     env->globals.insert(stmt.name);
-  bool previous = insidefunction;
+  if (utils::isDynamic(currentmodifers)) {
+    previous |= ignoreVariables;
+    ignoreVariables = true;
+  }
+  previous |= insidefunction << 1;
   insidefunction = true;
   newScope();
   for (auto &par : stmt.parameters) {
     env->variables.insert(par);
   }
   analyze(*stmt.Instructions);
-  insidefunction = previous;
+  insidefunction = previous & 0b10;
+  ignoreVariables = previous & 0b01;
   removeScope();
 }
 
@@ -160,25 +173,6 @@ void Analyzer::AnalyzeReturn(const ReturnStatement &stmt) {
                         stmt.location);
 }
 
-void Analyzer::AnalyzeGlobal(const Global &stmt) {
-  isGlobal = true;
-  if (stmt.stmt->StatementType == StmtType::ExpressionStmt) {
-    const auto &expr = *static_cast<const ExpressionStmt &>(*stmt.stmt).expr;
-    if (expr.ExpressionType == ExprType::Binary) {
-      const auto &bin = static_cast<const Binary &>(expr);
-      if (bin.op == Operator::Def) {
-        AnalyzeExpression(bin);
-      } else
-        errors.emplace_back("A variable defintion is expected", stmt.location);
-    } else
-      errors.emplace_back("A variable defintion is expected", stmt.location);
-  } else if (stmt.stmt->StatementType == StmtType::FunctionStatement) {
-    AnalyzeFunction(static_cast<const FunctionStatement &>(*stmt.stmt));
-  } else
-    errors.emplace_back("A defintion is expected", stmt.location);
-  isGlobal = false;
-}
-
 void Analyzer::AnalyzeBlock(const BlockStatement &stmt) {
   newScope();
   analyze(*stmt.instructions);
@@ -187,6 +181,10 @@ void Analyzer::AnalyzeBlock(const BlockStatement &stmt) {
 
 signed char Analyzer::analyze(const Program &program) {
   for (const auto &stmt : program.statements) {
+    currentmodifers = stmt->mods;
+    if (!utils::CheckModifiers(stmt->StatementType, stmt->mods))
+      errors.emplace_back("The modifier(s) cannot be used to such statement",
+                          stmt->location);
     switch (stmt->StatementType) {
     case StmtType::Output:
       AnalyzeOutput(static_cast<const Output &>(*stmt));
@@ -211,9 +209,6 @@ signed char Analyzer::analyze(const Program &program) {
       break;
     case StmtType::ReturnStatement:
       AnalyzeReturn(static_cast<const ReturnStatement &>(*stmt));
-      break;
-    case StmtType::Global:
-      AnalyzeGlobal(static_cast<const Global &>(*stmt));
       break;
     case StmtType::BlockStatement:
       AnalyzeBlock(static_cast<const BlockStatement &>(*stmt));

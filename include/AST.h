@@ -9,6 +9,8 @@
 
 enum class ExprType;
 
+enum Modifiers { MOD_NONE = 0, MOD_GLOBAL = 1, MOD_DYNAMIC = 2 };
+
 enum class Datatype : uint8_t {
   Int,
   Char,
@@ -83,7 +85,7 @@ enum class StmtType {
   FunctionStatement,
   ReturnStatement,
   BlockStatement,
-  Global
+  Amount
 };
 
 struct AST {
@@ -93,6 +95,7 @@ struct AST {
 
 struct Statement : AST {
   StmtType StatementType;
+  int32_t mods = MOD_NONE;
 };
 
 struct Expression : AST {
@@ -149,11 +152,15 @@ struct BlockStatement : Statement {
   std::unique_ptr<Program> instructions;
 };
 
-struct Global : Statement {
-  std::unique_ptr<Statement> stmt;
+enum class ExprType {
+  exprValue,
+  Variable,
+  FunctionCall,
+  Binary,
+  Unary,
+  Cast,
+  Amount
 };
-
-enum class ExprType { exprValue, Variable, FunctionCall, Binary, Unary, Cast };
 
 struct exprValue : Expression {
   Value value;

@@ -1,5 +1,6 @@
 #pragma once
 #include "AST.h"
+#include "utils.h"
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -22,7 +23,8 @@ class Analyzer {
   std::vector<SemanticError> errors = {};
   AnalyzerEnv *env = new AnalyzerEnv;
   bool insidefunction = false;
-  bool isGlobal = false;
+  int32_t currentmodifers = 0;
+  bool ignoreVariables = false;
   void AnalyzeExpression(const Expression &expr);
   void AnalyzeInput(const Input &stmt);
   void AnalyzeOutput(const Output &stmt);
@@ -32,7 +34,6 @@ class Analyzer {
   void AnalyzeIf(const IfStatement &stmt);
   void AnalyzeFunction(const FunctionStatement &stmt);
   void AnalyzeReturn(const ReturnStatement &stmt);
-  void AnalyzeGlobal(const Global &stmt);
   void AnalyzeBlock(const BlockStatement &stmt);
   void newScope();
   void removeScope();

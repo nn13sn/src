@@ -40,6 +40,7 @@ private:
   std::unique_ptr<Statement> ParseFunction();
   std::unique_ptr<Statement> ParseReturn();
   std::unique_ptr<Statement> ParseGlobal();
+  std::unique_ptr<Statement> ParseDynamic();
 
   std::unique_ptr<Expression> MakeExpression();
   std::unique_ptr<Expression> OrParse();

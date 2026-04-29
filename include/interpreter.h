@@ -18,7 +18,6 @@ public:
 
 struct Function {
   const FunctionStatement *declaration;
-  std::shared_ptr<Environment> env;
 };
 
 struct ReturnException {
@@ -41,7 +40,7 @@ public:
 
 private:
   bool insidefunction = false;
-  bool isGlobal = false;
+  int32_t currentmods = 0;
   std::shared_ptr<Environment> environment = std::make_shared<Environment>();
   void matchStatement(const Statement &stmt);
   void input(const Input &stmt);
@@ -49,12 +48,14 @@ private:
   void expression(const ExpressionStmt &stmt);
   void whileloop(const While &stmt);
   void forloop(const For &stmt);
-  void forbody(RuntimeValue *&Initial, const short &direction, const For &stmt);
+  bool getCond(const int64_t &Initial, const int64_t Final,
+               const signed char &direction, const Operator &op);
+  void forbody(RuntimeValue *&Initial, const signed char &direction,
+               const For &stmt);
   void ifStatement(const IfStatement &stmt);
   void function(const FunctionStatement &stmt);
   void returnStatement(const ReturnStatement &stmt);
   void block(const BlockStatement &stmt);
-  void global(const Global &stmt);
   double toDouble(const RuntimeValue &value, const Location &loc);
   int64_t toInt(const RuntimeValue &value, const Location &loc);
   std::string toString(const RuntimeValue &value, const Location &loc);

@@ -1,5 +1,6 @@
 #include "interpreter.h"
 #include "AST.h"
+#include "utils.h"
 #include <memory>
 
 interpreter_error::interpreter_error(const std::string &msg,
@@ -77,6 +78,8 @@ RuntimeValue *Interpreter::validCheck(RuntimeValue *ptr, const Location &loc,
 }
 
 RuntimeValue Interpreter::eval(const Expression &expr) {
+  if (!utils::CheckModifiers(expr, currentmods))
+    throw interpreter_error("Invalid modifer(s)", expr.location);
   switch (expr.ExpressionType) {
   case ExprType::exprValue:
     return static_cast<const exprValue &>(expr).value;
@@ -192,7 +195,10 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
               " and given parameters are " +
               std::to_string(expr.parameters.size()),
           expr.location);
-    environment = std::make_shared<Environment>(Environment{{}, nullptr});
+    if (utils::isDynamic(realfunc->declaration->mods))
+      addScope();
+    else
+      environment = std::make_shared<Environment>(Environment{{}, nullptr});
     insidefunction = true;
     for (size_t i = 0; i < expr.parameters.size(); i++) {
       environment->set(realfunc->declaration->parameters[i],
@@ -412,7 +418,7 @@ RuntimeValue Interpreter::evalDef(const Binary &expr) {
   if (expr.left->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.left);
     auto right = eval(*expr.right);
-    if (isGlobal) {
+    if (utils::isGlobal(currentmods)) {
       if (!environment->newGlobal(a.name, right))
         throw interpreter_error("A variable was already declated",
                                 expr.location);
@@ -653,7 +659,7 @@ void Interpreter::whileloop(const While &stmt) {
   }
 }
 
-void Interpreter::forbody(RuntimeValue *&Initial, const short &direction,
+void Interpreter::forbody(RuntimeValue *&Initial, const signed char &direction,
                           const For &stmt) {
   addScope();
   for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
@@ -675,9 +681,33 @@ void Interpreter::forbody(RuntimeValue *&Initial, const short &direction,
   }
 }
 
+bool Interpreter::getCond(const int64_t &Initial, const int64_t Final,
+                          const signed char &direction, const Operator &op) {
+  switch (op) {
+  case Operator::Arrow:
+    return (Final - Initial) * direction > 0;
+  case Operator::ArrowEq:
+    return (Final - Initial) * direction >= 0;
+  case Operator::NotEqual:
+    return Initial != Final;
+  case Operator::Greater:
+    return Initial > Final;
+  case Operator::Less:
+    return Initial < Final;
+  case Operator::GreaterEq:
+    return Initial >= Final;
+  case Operator::LessEq:
+    return Initial <= Final;
+  default:
+    return false;
+  }
+}
+
 void Interpreter::forloop(const For &stmt) {
   addScope();
   auto op = stmt.op;
+  int64_t Final;
+  int64_t step = -1;
   if (stmt.Initialvalue == nullptr) {
     if (!environment->getPointer(stmt.iterator)) {
       environment->set(stmt.iterator, {Datatype::Int, 0});
@@ -688,74 +718,76 @@ void Interpreter::forloop(const For &stmt) {
     else
       environment->set(stmt.iterator, eval(*stmt.Initialvalue));
   }
-  short direction = -1;
+  signed char direction = -1;
   auto Initial = environment->getPointer(stmt.iterator);
-  int64_t Final;
   if (auto a = eval(*stmt.Finalvalue);
-      utils::isNumerical(a) && utils::isNumerical(*Initial)) {
-    Final = toInt(a, stmt.location);
+      a.type == Datatype::Int && Initial->type == Datatype::Int) {
+    Final = std::get<int64_t>(a.data);
   } else
-    throw interpreter_error(
-        "The initial and the final value both have to be numerical",
-        stmt.location);
+    throw interpreter_error("The for loop requires integer bounds",
+                            stmt.location);
+  auto localIterator = std::get<int64_t>(Initial->data);
   if (stmt.op == Operator::Arrow) {
     if (toInt(*Initial, stmt.location) < Final)
-      direction = 1;
+      direction = step = 1;
   } else if (stmt.op == Operator::ArrowEq) {
     if (toInt(*Initial, stmt.location) <= Final)
-      direction = 1;
+      direction = step = 1;
   } else if (stmt.op == Operator::Greater || stmt.op == Operator::Less ||
              stmt.op == Operator::GreaterEq || stmt.op == Operator::LessEq ||
              stmt.op == Operator::NotEqual) {
-    direction = 1;
+    direction = step = 1;
   } else
     throw interpreter_error("Invalid operator", stmt.location);
-  if (Initial->type == Datatype::Bool)
-    *Initial = {Datatype::Int, toInt(*Initial, stmt.location)};
-  switch (op) {
-  case Operator::Arrow:
-    while ((Final - toInt(*Initial, stmt.location)) * direction > 0) {
-      forbody(Initial, direction, stmt);
+  if (stmt.step && !utils::isDynamic(stmt.mods)) {
+    auto a = eval(*stmt.step);
+    if (a.type == Datatype::Int)
+      step = std::get<int64_t>(a.data);
+    else
+      throw interpreter_error("The for loop requires integer step",
+                              stmt.location);
+  }
+  if (utils::isDynamic(stmt.mods)) {
+    while (getCond(std::get<int64_t>(Initial->data), Final, direction, op)) {
+      addScope();
+      execute(*stmt.Instructions);
+      popScope();
+      if (Initial->type != Datatype::Int)
+        // in case if the iterator was changed to another data type inside the
+        // loop
+        throw interpreter_error("The iterator must stay integer",
+                                stmt.location);
+      if (stmt.step) {
+        eval(*stmt.step);
+        if (Initial->type != Datatype::Int)
+          throw interpreter_error("The iterator must stay integer",
+                                  stmt.location);
+        // in case if the step can change the data type of an iterator
+      } else {
+        std::get<int64_t>(Initial->data) += step;
+      }
+      if (auto a = eval(*stmt.Finalvalue); a.type == Datatype::Int)
+        Final = std::get<int64_t>(a.data);
+      else
+        throw interpreter_error("The boundaries has to stay integer",
+                                stmt.Finalvalue->location);
     }
-    break;
-  case Operator::ArrowEq:
-    while ((Final - toInt(*Initial, stmt.location)) * direction >= 0) {
-      forbody(Initial, direction, stmt);
+  } else {
+    while (getCond(localIterator, Final, direction, op)) {
+      addScope();
+      execute(*stmt.Instructions);
+      popScope();
+      localIterator += step;
+      Initial->data = localIterator;
     }
-    break;
-  case Operator::NotEqual:
-    while (toInt(*Initial, stmt.location) != Final) {
-      forbody(Initial, direction, stmt);
-    }
-    break;
-  case Operator::Greater:
-    while (toInt(*Initial, stmt.location) > Final) {
-      forbody(Initial, direction, stmt);
-    }
-    break;
-  case Operator::Less:
-    while (toInt(*Initial, stmt.location) < Final) {
-      forbody(Initial, direction, stmt);
-    }
-    break;
-  case Operator::GreaterEq:
-    while (toInt(*Initial, stmt.location) >= Final) {
-      forbody(Initial, direction, stmt);
-    }
-    break;
-  case Operator::LessEq:
-    while (toInt(*Initial, stmt.location) <= Final) {
-      forbody(Initial, direction, stmt);
-    }
-    break;
   }
   popScope();
 }
 
 void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
-                    std::make_shared<Function>(Function{&stmt, environment}));
-  if (environment->parent && !isGlobal)
+                    std::make_shared<Function>(Function{&stmt}));
+  if (environment->parent && !utils::isGlobal(stmt.mods))
     environment->set(stmt.name, Func);
   else
     environment->newGlobal(stmt.name, Func);
@@ -765,32 +797,15 @@ void Interpreter::returnStatement(const ReturnStatement &stmt) {
   if (insidefunction)
     throw ReturnException(stmt.expr ? eval(*stmt.expr) : RuntimeValue());
   else
-    throw interpreter_error("Return Statement must be used inside the function",
-                            stmt.location);
-}
-
-void Interpreter::global(const Global &stmt) {
-  isGlobal = true;
-  if (stmt.stmt->StatementType == StmtType::ExpressionStmt) {
-    const auto &insidestmt = static_cast<const ExpressionStmt &>(*stmt.stmt);
-    if (insidestmt.expr->ExpressionType == ExprType::Binary) {
-      const auto &expr = static_cast<const Binary &>(*insidestmt.expr);
-      if (expr.op == Operator::Def) {
-        eval(expr);
-      } else
-        throw interpreter_error("A variable defintion is expected",
-                                expr.left->location);
-    } else
-      throw interpreter_error("A variable defintion is expected",
-                              insidestmt.expr->location);
-  } else if (stmt.stmt->StatementType == StmtType::FunctionStatement) {
-    function(static_cast<const FunctionStatement &>(*stmt.stmt));
-  } else
-    throw interpreter_error("A defintion is expected", stmt.location);
-  isGlobal = false;
+    throw interpreter_error(
+        "The return statement must be used inside the function", stmt.location);
 }
 
 void Interpreter::matchStatement(const Statement &stmt) {
+  if (!utils::CheckModifiers(stmt.StatementType, stmt.mods))
+    throw interpreter_error("Invalid modifier(s) for such statement",
+                            stmt.location);
+  currentmods = stmt.mods;
   switch (stmt.StatementType) {
   case StmtType::Output:
     return output(static_cast<const Output &>(stmt));
@@ -810,8 +825,6 @@ void Interpreter::matchStatement(const Statement &stmt) {
     return returnStatement(static_cast<const ReturnStatement &>(stmt));
   case StmtType::BlockStatement:
     return block(static_cast<const BlockStatement &>(stmt));
-  case StmtType::Global:
-    return global(static_cast<const Global &>(stmt));
   default:
     throw interpreter_error("Unknown Statement type", stmt.location);
   }
