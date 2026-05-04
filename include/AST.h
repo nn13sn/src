@@ -1,4 +1,8 @@
 #pragma once
+#include "datatype.h"
+#include "literal.h"
+#include "location.h"
+#include "operators.h"
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -10,70 +14,6 @@
 enum class ExprType;
 
 enum Modifiers { MOD_NONE = 0, MOD_GLOBAL = 1, MOD_DYNAMIC = 2 };
-
-enum class Datatype : uint8_t {
-  Int,
-  Char,
-  String,
-  Double,
-  Bool,
-  Array,
-  Function,
-  Invalid
-};
-
-enum class Operator : uint8_t {
-  Add,
-  Sub,
-  Mul,
-  Div,
-  Mod,
-
-  PreIncr,
-  PostIncr,
-  PreDecr,
-  PostDecr,
-  Not,
-
-  Less,
-  Greater,
-  LessEq,
-  GreaterEq,
-  Equal,
-  NotEqual,
-  AND,
-  OR,
-
-  Def,
-  Arrow,
-  ArrowEq,
-  Invalid
-};
-
-enum class Separator : uint8_t {
-  LeftParenthesis,
-  RightParenthesis,
-  Colon,
-  Semicolon,
-  LeftSquareBracket,
-  RightSquareBracket,
-  LeftCurlyBracket,
-  RightCurlyBracket,
-  Comma,
-  Invalid
-};
-
-struct Value {
-  Datatype type;
-  std::variant<int64_t, unsigned char, std::string, double, bool,
-               std::vector<Value>>
-      data;
-};
-
-struct Location {
-  size_t column = 0;
-  size_t line;
-};
 
 enum class StmtType {
   Input,
@@ -163,7 +103,7 @@ enum class ExprType {
 };
 
 struct exprValue : Expression {
-  Value value;
+  Literal value;
 };
 
 struct Variable : Expression {

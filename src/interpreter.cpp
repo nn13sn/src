@@ -1,52 +1,8 @@
 #include "interpreter.h"
 #include "AST.h"
+#include "runtime_variable.h"
 #include "utils.h"
 #include <memory>
-
-interpreter_error::interpreter_error(const std::string &msg,
-                                     const Location &loc)
-    : std::runtime_error(msg) {
-  location = loc;
-}
-
-RuntimeValue Environment::get(const std::string &name) {
-  if (auto value = globals.find(name); value != globals.end())
-    return value->second;
-  if (auto value = values.find(name); value != values.end()) {
-    return value->second;
-  }
-  if (parent)
-    return parent->get(name);
-  return {Datatype::Invalid, NULL};
-}
-
-RuntimeValue *Environment::getPointer(const std::string &name) {
-  if (auto value = globals.find(name); value != globals.end())
-    return &value->second;
-  if (auto value = values.find(name); value != values.end()) {
-    return &value->second;
-  }
-  if (parent)
-    return parent->getPointer(name);
-  return nullptr;
-}
-
-void Environment::set(const std::string &name, const RuntimeValue &value) {
-  if (auto ptr = getPointer(name)) {
-    *ptr = value;
-    return;
-  }
-  values[name] = value;
-}
-
-bool Environment::newGlobal(const std::string &name,
-                            const RuntimeValue &value) {
-  if (!getPointer(name)) {
-    globals[name] = value;
-    return true;
-  }
-  return false;
-}
 
 void Interpreter::addScope() {
   environment = std::make_shared<Environment>(Environment{{}, environment});
@@ -63,14 +19,15 @@ void Interpreter::popScope() {
 RuntimeValue Interpreter::validCheck(const RuntimeValue &value,
                                      const Location &loc,
                                      const std::string &name) {
-  if (value.type == Datatype::Invalid) {
+  if (value.getType() == Datatype::Invalid) {
     throw interpreter_error("Undefined variable: " + name, loc);
   }
   return value;
 }
 
-RuntimeValue *Interpreter::validCheck(RuntimeValue *ptr, const Location &loc,
-                                      const std::string &name) {
+RuntimeVariable *Interpreter::validCheck(RuntimeVariable *ptr,
+                                         const Location &loc,
+                                         const std::string &name) {
   if (!ptr) {
     throw interpreter_error("Undefined variable: " + name, loc);
   }
@@ -78,14 +35,12 @@ RuntimeValue *Interpreter::validCheck(RuntimeValue *ptr, const Location &loc,
 }
 
 RuntimeValue Interpreter::eval(const Expression &expr) {
-  if (!utils::CheckModifiers(expr, currentmods))
-    throw interpreter_error("Invalid modifer(s)", expr.location);
   switch (expr.ExpressionType) {
   case ExprType::exprValue:
     return static_cast<const exprValue &>(expr).value;
   case ExprType::Variable: {
     auto var = static_cast<const Variable &>(expr);
-    return validCheck(environment->get(var.name), var.location, var.name);
+    return validCheck(environment->get(var.name).value, var.location, var.name);
   }
   case ExprType::FunctionCall:
     return evalFunctionCall(static_cast<const FunctionCall &>(expr));
@@ -135,7 +90,7 @@ RuntimeValue Interpreter::eval(const Expression &expr) {
   case ExprType::Cast: {
     const auto &cast = static_cast<const Cast &>(expr);
     auto b = eval(*cast.expr);
-    if (b.type == Datatype::String)
+    if (b.getType() == Datatype::String)
       return convertString(cast);
     switch (cast.castTo) {
     case Datatype::Int:
@@ -184,10 +139,10 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
   try {
     auto func = validCheck(environment->getPointer(expr.name), expr.location,
                            expr.name);
-    if (func->type != Datatype::Function)
+    if (func->value.getType() != Datatype::Function)
       throw interpreter_error(expr.name + " is not a function to call",
                               expr.location);
-    auto realfunc = std::get<std::shared_ptr<Function>>(func->data);
+    auto realfunc = std::get<std::shared_ptr<Function>>(func->value.getData());
     if (realfunc->declaration->parameters.size() != expr.parameters.size())
       throw interpreter_error(
           "Expected paramters: " +
@@ -202,7 +157,7 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
     insidefunction = true;
     for (size_t i = 0; i < expr.parameters.size(); i++) {
       environment->set(realfunc->declaration->parameters[i],
-                       eval(*expr.parameters[i]));
+                       eval(*expr.parameters[i]), expr.location);
     }
     for (size_t i = 0;
          i < realfunc->declaration->Instructions->statements.size(); i++) {
@@ -223,16 +178,17 @@ RuntimeValue Interpreter::convertString(const Cast &expr) {
     auto b = eval(*expr.expr);
     switch (expr.castTo) {
     case Datatype::Int:
-      return {Datatype::Int, std::stoll(std::get<std::string>(b.data))};
+      return {Datatype::Int, std::stoll(std::get<std::string>(b.getData()))};
     case Datatype::Double:
-      return {Datatype::Double, std::stod(std::get<std::string>(b.data))};
+      return {Datatype::Double, std::stod(std::get<std::string>(b.getData()))};
     case Datatype::Char:
-      if (auto a = std::get<std::string>(b.data); a.size() == 1)
+      if (auto a = std::get<std::string>(b.getData()); a.size() == 1)
         return {Datatype::Char, static_cast<unsigned char>(a[0])};
       else
         throw std::runtime_error("err");
     case Datatype::Bool:
-      if (auto a = std::get<std::string>(b.data); a == "true" || a == "false")
+      if (auto a = std::get<std::string>(b.getData());
+          a == "true" || a == "false")
         return {Datatype::Bool, a == "true" ? true : false};
       throw std::runtime_error("err");
     default:
@@ -245,30 +201,30 @@ RuntimeValue Interpreter::convertString(const Cast &expr) {
 }
 
 double Interpreter::toDouble(const RuntimeValue &value, const Location &loc) {
-  switch (value.type) {
+  switch (value.getType()) {
   case Datatype::Int:
-    return std::get<int64_t>(value.data);
+    return std::get<int64_t>(value.getData());
   case Datatype::Double:
-    return std::get<double>(value.data);
+    return std::get<double>(value.getData());
   case Datatype::Char:
-    return std::get<unsigned char>(value.data);
+    return std::get<unsigned char>(value.getData());
   case Datatype::Bool:
-    return std::get<bool>(value.data) ? 1.0 : 0.0;
+    return std::get<bool>(value.getData()) ? 1.0 : 0.0;
   default:
     throw interpreter_error("Such data type cannot be casted to double", loc);
   }
 }
 
 int64_t Interpreter::toInt(const RuntimeValue &value, const Location &loc) {
-  switch (value.type) {
+  switch (value.getType()) {
   case Datatype::Int:
-    return std::get<int64_t>(value.data);
+    return std::get<int64_t>(value.getData());
   case Datatype::Double:
-    return static_cast<int64_t>(std::round(std::get<double>(value.data)));
+    return static_cast<int64_t>(std::round(std::get<double>(value.getData())));
   case Datatype::Char:
-    return std::get<unsigned char>(value.data);
+    return std::get<unsigned char>(value.getData());
   case Datatype::Bool:
-    return std::get<bool>(value.data);
+    return std::get<bool>(value.getData());
   default:
     throw interpreter_error("Such data type cannot be casted to int", loc);
   }
@@ -276,15 +232,15 @@ int64_t Interpreter::toInt(const RuntimeValue &value, const Location &loc) {
 
 std::string Interpreter::toString(const RuntimeValue &value,
                                   const Location &loc) {
-  switch (value.type) {
+  switch (value.getType()) {
   case Datatype::Int:
-    return std::to_string(std::get<int64_t>(value.data));
+    return std::to_string(std::get<int64_t>(value.getData()));
   case Datatype::Double:
-    return std::to_string(std::get<double>(value.data));
+    return std::to_string(std::get<double>(value.getData()));
   case Datatype::Char:
-    return std::string(1, std::get<unsigned char>(value.data));
+    return std::string(1, std::get<unsigned char>(value.getData()));
   case Datatype::Bool:
-    return std::get<bool>(value.data) ? "true" : "false";
+    return std::get<bool>(value.getData()) ? "true" : "false";
   default:
     throw interpreter_error("Such data type cannot be casted to string", loc);
   }
@@ -302,13 +258,13 @@ RuntimeValue Interpreter::evalNegative(const Unary &expr) {
   auto value = eval(*expr.expr);
   if (utils::isNumerical(value)) {
     std::visit(
-        [](auto &c) {
+        [&](const auto &c) {
           using T = std::decay_t<decltype(c)>;
           if constexpr (std::is_arithmetic_v<T>) {
-            c = c * (-1);
+            value.setData(c * (-1), expr.location);
           }
         },
-        value.data);
+        value.getData());
     return value;
   } else
     throw interpreter_error(
@@ -320,20 +276,8 @@ RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (utils::isNumerical(*b)) {
-      std::visit(
-          [](auto &c) {
-            using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_arithmetic_v<T>) {
-              c = c + 1;
-            }
-          },
-          b->data);
-      return *b;
-    } else
-      throw interpreter_error(
-          "The increment operator cannot be used to such value type",
-          expr.location);
+    b->value.increment(expr.location);
+    return b->value;
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
@@ -344,20 +288,8 @@ RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (utils::isNumerical(*b)) {
-      std::visit(
-          [](auto &c) {
-            using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_arithmetic_v<T>) {
-              c = c - 1;
-            }
-          },
-          b->data);
-      return *b;
-    } else
-      throw interpreter_error(
-          "The decrement operator cannot be used to such value type",
-          expr.location);
+    b->value.decrement(expr.location);
+    return b->value;
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
@@ -368,21 +300,9 @@ RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (utils::isNumerical(*b)) {
-      auto c = *b; // previous value
-      std::visit(
-          [](auto &c) {
-            using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_arithmetic_v<T>) {
-              c = c + 1;
-            }
-          },
-          b->data);
-      return c;
-    } else
-      throw interpreter_error(
-          "The increment operator cannot be used to such value type",
-          expr.location);
+    auto c = *b;
+    b->value.increment(expr.location);
+    return c.value;
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
@@ -393,21 +313,9 @@ RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    if (utils::isNumerical(*b)) {
-      auto c = *b;
-      std::visit(
-          [](auto &c) {
-            using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_arithmetic_v<T>) {
-              c = c - 1;
-            }
-          },
-          b->data);
-      return c;
-    } else
-      throw interpreter_error(
-          "The decrement operator cannot be used to such value type",
-          expr.location);
+    auto c = *b;
+    b->value.decrement(expr.location);
+    return c.value;
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
@@ -423,7 +331,7 @@ RuntimeValue Interpreter::evalDef(const Binary &expr) {
         throw interpreter_error("A variable was already declated",
                                 expr.location);
     } else
-      environment->set(a.name, right);
+      environment->set(a.name, right, expr.location);
     return right;
   } else
     throw interpreter_error(
@@ -436,7 +344,7 @@ RuntimeValue Interpreter::evalAdd(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"+\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Double, toDouble(left, loc) + toDouble(right, loc)};
   return {Datatype::Int, toInt(left, loc) + toInt(right, loc)};
 }
@@ -447,7 +355,7 @@ RuntimeValue Interpreter::evalSub(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"-\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Double, toDouble(left, loc) - toDouble(right, loc)};
   return {Datatype::Int, toInt(left, loc) - toInt(right, loc)};
 }
@@ -458,7 +366,7 @@ RuntimeValue Interpreter::evalMul(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"*\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Double, toDouble(left, loc) * toDouble(right, loc)};
   return {Datatype::Int, toInt(left, loc) * toInt(right, loc)};
 }
@@ -478,7 +386,7 @@ RuntimeValue Interpreter::evalDiv(const RuntimeValue &left,
 RuntimeValue Interpreter::evalMod(const RuntimeValue &left,
                                   const RuntimeValue &right,
                                   const Location &loc) {
-  if (left.type != Datatype::Int || right.type != Datatype::Int)
+  if (left.getType() != Datatype::Int || right.getType() != Datatype::Int)
     throw interpreter_error("Operator \"%\" cannot be used to such value type",
                             loc);
   auto INTright = toInt(right, loc);
@@ -493,7 +401,7 @@ RuntimeValue Interpreter::evalGr(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \">\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) > toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) > toInt(right, loc)};
 }
@@ -504,7 +412,7 @@ RuntimeValue Interpreter::evalLs(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"<\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) < toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) < toInt(right, loc)};
 }
@@ -515,7 +423,7 @@ RuntimeValue Interpreter::evalGe(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \">=\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) >= toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) >= toInt(right, loc)};
 }
@@ -526,7 +434,7 @@ RuntimeValue Interpreter::evalLe(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"<=\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) <= toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) <= toInt(right, loc)};
 }
@@ -537,7 +445,7 @@ RuntimeValue Interpreter::evalEq(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"==\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) == toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) == toInt(right, loc)};
 }
@@ -548,39 +456,43 @@ RuntimeValue Interpreter::evalNq(const RuntimeValue &left,
   if (!utils::isNumerical(left) || !utils::isNumerical(right))
     throw interpreter_error("Operator \"!=\" cannot be used to such value type",
                             loc);
-  if (left.type == Datatype::Double || right.type == Datatype::Double)
+  if (left.getType() == Datatype::Double || right.getType() == Datatype::Double)
     return {Datatype::Bool, toDouble(left, loc) != toDouble(right, loc)};
   return {Datatype::Bool, toInt(left, loc) != toInt(right, loc)};
 }
 
 bool Interpreter::isTrue(const RuntimeValue &value, const Location &loc) {
-  switch (value.type) {
+  switch (value.getType()) {
   case Datatype::Int:
-    return std::get<int64_t>(value.data) != 0;
+    return std::get<int64_t>(value.getData()) != 0;
   case Datatype::Char:
-    return std::get<unsigned char>(value.data) != '\0';
+    return std::get<unsigned char>(value.getData()) != '\0';
   case Datatype::String:
-    return !std::get<std::string>(value.data).empty();
+    return !std::get<std::string>(value.getData()).empty();
   case Datatype::Double:
-    return std::get<double>(value.data) != 0;
+    return std::get<double>(value.getData()) != 0;
   case Datatype::Bool:
-    return std::get<bool>(value.data);
+    return std::get<bool>(value.getData());
   case Datatype::Array:
-    return !std::get<std::vector<Value>>(value.data).empty();
+    return !std::get<std::vector<Literal>>(value.getData()).empty();
   default:
     throw interpreter_error("Such data type cannot be converted to boolean",
                             loc);
   }
 }
 
-void Interpreter::expression(const ExpressionStmt &stmt) { eval(*stmt.expr); }
+void Interpreter::expression(const ExpressionStmt &stmt) {
+  if (!utils::CheckModifiers(*stmt.expr, stmt.mods))
+    throw interpreter_error("Invalid modifer(s)", stmt.location);
+  eval(*stmt.expr);
+}
 
 void Interpreter::input(const Input &stmt) {
   if (stmt.input->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*stmt.input);
     std::string str;
     std::cin >> str;
-    environment->set(a.name, {Datatype::String, str});
+    environment->set(a.name, {Datatype::String, str}, a.location);
     return;
   } else if (stmt.input->ExpressionType == ExprType::Cast) {
     const auto &a = static_cast<const Cast &>(*stmt.input);
@@ -588,8 +500,8 @@ void Interpreter::input(const Input &stmt) {
       const auto &b = static_cast<const Variable &>(*a.expr);
       std::string str;
       std::cin >> str;
-      environment->set(b.name, {Datatype::String, str});
-      environment->set(b.name, convertString(a));
+      environment->set(b.name, {Datatype::String, str}, b.location);
+      environment->set(b.name, convertString(a), b.location);
       return;
     }
   }
@@ -599,21 +511,21 @@ void Interpreter::input(const Input &stmt) {
 
 void Interpreter::output(const Output &stmt) {
   RuntimeValue value = eval(*stmt.output);
-  switch (value.type) {
+  switch (value.getType()) {
   case Datatype::Int:
-    std::cout << std::get<int64_t>(value.data);
+    std::cout << std::get<int64_t>(value.getData());
     break;
   case Datatype::Double:
-    std::cout << std::get<double>(value.data);
+    std::cout << std::get<double>(value.getData());
     break;
   case Datatype::Char:
-    std::cout << std::get<unsigned char>(value.data);
+    std::cout << std::get<unsigned char>(value.getData());
     break;
   case Datatype::Bool:
-    std::cout << std::get<bool>(value.data);
+    std::cout << std::get<bool>(value.getData());
     break;
   case Datatype::String:
-    std::cout << std::get<std::string>(value.data);
+    std::cout << std::get<std::string>(value.getData());
     break;
   default:
     throw interpreter_error("Such data type cannot be printed", stmt.location);
@@ -659,28 +571,6 @@ void Interpreter::whileloop(const While &stmt) {
   }
 }
 
-void Interpreter::forbody(RuntimeValue *&Initial, const signed char &direction,
-                          const For &stmt) {
-  addScope();
-  for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
-    matchStatement(*stmt.Instructions->statements[i]);
-  }
-  popScope();
-  Initial = environment->getPointer(stmt.iterator);
-  if (stmt.step == nullptr) {
-    std::visit(
-        [direction](auto &a) {
-          using T = std::decay_t<decltype(a)>;
-          if constexpr (std::is_arithmetic_v<T>) {
-            a += direction;
-          }
-        },
-        Initial->data);
-  } else {
-    eval(*stmt.step);
-  }
-}
-
 bool Interpreter::getCond(const int64_t &Initial, const int64_t Final,
                           const signed char &direction, const Operator &op) {
   switch (op) {
@@ -710,28 +600,30 @@ void Interpreter::forloop(const For &stmt) {
   int64_t step = -1;
   if (stmt.Initialvalue == nullptr) {
     if (!environment->getPointer(stmt.iterator)) {
-      environment->set(stmt.iterator, {Datatype::Int, 0});
+      environment->set(stmt.iterator, {Datatype::Int, 0}, stmt.location);
     }
   } else {
     if (auto a = environment->getPointer(stmt.iterator))
       *a = eval(*stmt.Initialvalue);
     else
-      environment->set(stmt.iterator, eval(*stmt.Initialvalue));
+      environment->set(stmt.iterator, eval(*stmt.Initialvalue),
+                       stmt.Initialvalue->location);
   }
   signed char direction = -1;
   auto Initial = environment->getPointer(stmt.iterator);
   if (auto a = eval(*stmt.Finalvalue);
-      a.type == Datatype::Int && Initial->type == Datatype::Int) {
-    Final = std::get<int64_t>(a.data);
+      a.getType() == Datatype::Int &&
+      Initial->value.getType() == Datatype::Int) {
+    Final = std::get<int64_t>(a.getData());
   } else
     throw interpreter_error("The for loop requires integer bounds",
                             stmt.location);
-  auto localIterator = std::get<int64_t>(Initial->data);
+  auto localIterator = std::get<int64_t>(Initial->value.getData());
   if (stmt.op == Operator::Arrow) {
-    if (toInt(*Initial, stmt.location) < Final)
+    if (localIterator < Final)
       direction = step = 1;
   } else if (stmt.op == Operator::ArrowEq) {
-    if (toInt(*Initial, stmt.location) <= Final)
+    if (localIterator <= Final)
       direction = step = 1;
   } else if (stmt.op == Operator::Greater || stmt.op == Operator::Less ||
              stmt.op == Operator::GreaterEq || stmt.op == Operator::LessEq ||
@@ -741,33 +633,35 @@ void Interpreter::forloop(const For &stmt) {
     throw interpreter_error("Invalid operator", stmt.location);
   if (stmt.step && !utils::isDynamic(stmt.mods)) {
     auto a = eval(*stmt.step);
-    if (a.type == Datatype::Int)
-      step = std::get<int64_t>(a.data);
+    if (a.getType() == Datatype::Int)
+      step = std::get<int64_t>(a.getData());
     else
       throw interpreter_error("The for loop requires integer step",
                               stmt.location);
   }
   if (utils::isDynamic(stmt.mods)) {
-    while (getCond(std::get<int64_t>(Initial->data), Final, direction, op)) {
+    while (getCond(std::get<int64_t>(Initial->value.getData()), Final,
+                   direction, op)) {
       addScope();
       execute(*stmt.Instructions);
       popScope();
-      if (Initial->type != Datatype::Int)
+      if (Initial->value.getType() != Datatype::Int)
         // in case if the iterator was changed to another data type inside the
         // loop
         throw interpreter_error("The iterator must stay integer",
                                 stmt.location);
       if (stmt.step) {
         eval(*stmt.step);
-        if (Initial->type != Datatype::Int)
+        if (Initial->value.getType() != Datatype::Int)
           throw interpreter_error("The iterator must stay integer",
                                   stmt.location);
         // in case if the step can change the data type of an iterator
       } else {
-        std::get<int64_t>(Initial->data) += step;
+        Initial->value.setData(
+            std::get<int64_t>(Initial->value.getData()) + step, stmt.location);
       }
-      if (auto a = eval(*stmt.Finalvalue); a.type == Datatype::Int)
-        Final = std::get<int64_t>(a.data);
+      if (auto a = eval(*stmt.Finalvalue); a.getType() == Datatype::Int)
+        Final = std::get<int64_t>(a.getData());
       else
         throw interpreter_error("The boundaries has to stay integer",
                                 stmt.Finalvalue->location);
@@ -778,7 +672,7 @@ void Interpreter::forloop(const For &stmt) {
       execute(*stmt.Instructions);
       popScope();
       localIterator += step;
-      Initial->data = localIterator;
+      Initial->value.setData(localIterator, stmt.location);
     }
   }
   popScope();
@@ -788,7 +682,7 @@ void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
                     std::make_shared<Function>(Function{&stmt}));
   if (environment->parent && !utils::isGlobal(stmt.mods))
-    environment->set(stmt.name, Func);
+    environment->set(stmt.name, Func, stmt.location);
   else
     environment->newGlobal(stmt.name, Func);
 }

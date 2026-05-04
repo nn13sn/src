@@ -8,6 +8,9 @@ add_executable(DoubleC
     src/parser.cpp
     src/interpreter.cpp
     src/analyzer.cpp
+    src/runtime_value.cpp
+    src/environment.cpp
+    src/utils.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)

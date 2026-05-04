@@ -1,31 +1,30 @@
 #pragma once
-#include "AST.h"
-#include <iostream>
+#include "interpreter_error.h"
+#include "literal.h"
+#include "utils.h"
 #include <string>
-struct Function;
-
-using Data = std::variant<int64_t, unsigned char, std::string, double, bool,
-                          std::vector<Value>, std::shared_ptr<Function>>;
-
-struct RuntimeValue {
-  Datatype type;
-  Data data;
-  RuntimeValue(const Value &value);
-  RuntimeValue(const Datatype &type, const Data &data);
-  RuntimeValue();
+#include <variant>
+#include <vector>
+struct Function {
+  const FunctionStatement *declaration;
 };
 
-inline RuntimeValue::RuntimeValue(const Value &value) {
-  type = value.type;
-  std::visit([this](const auto &data) { this->data = data; }, value.data);
-}
+using Data = std::variant<int64_t, unsigned char, std::string, double, bool,
+                          std::vector<Literal>, std::shared_ptr<Function>>;
 
-inline RuntimeValue::RuntimeValue(const Datatype &type, const Data &data) {
-  this->type = type;
-  this->data = data;
-}
+class RuntimeValue {
+  Datatype type;
+  Data data;
+  Datatype deduceType(const Data &data);
 
-inline RuntimeValue::RuntimeValue() {
-  type = Datatype::Invalid;
-  data = NULL;
+public:
+  RuntimeValue(const Literal &value);
+  RuntimeValue(const Datatype &type, const Data &data);
+  RuntimeValue();
+  void increment(const Location &loc);
+  void decrement(const Location &loc);
+  void set(const RuntimeValue &var, const Location &loc);
+  void setData(const Data &data, const Location &loc);
+  const Data &getData() const;
+  const Datatype &getType() const;
 };

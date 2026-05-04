@@ -1,23 +1,9 @@
 #pragma once
 #include "AST.h"
-#include "utils.h"
-#include <iostream>
-#include <string>
-#include <unordered_set>
+#include "analyzer_env.h"
+#include "semantic_error.h"
 #define AnalyzerOK 0
 #define AnalyzerError -1
-struct AnalyzerEnv {
-  std::unordered_set<std::string> variables = {};
-  inline static std::unordered_set<std::string> globals = {};
-  AnalyzerEnv *parent = nullptr;
-  bool exists(const std::string &name);
-};
-
-struct SemanticError {
-  Location loc;
-  std::string err;
-  SemanticError(const std::string &err, const Location &loc);
-};
 
 class Analyzer {
   std::vector<SemanticError> errors = {};

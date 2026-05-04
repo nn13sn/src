@@ -96,7 +96,7 @@ Datatype Parser::getDatatype(const Keyword &keyword) {
 }
 
 std::variant<int64_t, unsigned char, std::string, double, bool,
-             std::vector<Value>>
+             std::vector<Literal>>
 Parser::getData() {
   if (Check(TokenType::Number))
     return std::stoi(peek().lexeme);

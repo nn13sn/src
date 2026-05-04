@@ -1,27 +1,9 @@
 #include "analyzer.h"
 #include "AST.h"
-#include "lexer.h"
+#include "analyzer_variable.h"
 #include "utils.h"
-#include <tuple>
-
-SemanticError::SemanticError(const std::string &err, const Location &loc) {
-  this->err = err;
-  this->loc = loc;
-}
-
-bool AnalyzerEnv::exists(const std::string &name) {
-  if (globals.find(name) != globals.end())
-    return true;
-  if (variables.find(name) != variables.end())
-    return true;
-  if (parent)
-    return parent->exists(name);
-  return false;
-}
 
 void Analyzer::AnalyzeExpression(const Expression &expr) {
-  if (!utils::CheckModifiers(expr, currentmodifers))
-    errors.emplace_back("Invalid Modifier", expr.location);
   switch (expr.ExpressionType) {
   case ExprType::Variable: {
     if (!ignoreVariables &&
@@ -40,12 +22,14 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
       AnalyzeExpression(*a.right);
       if (utils::isGlobal(currentmodifers)) {
         if (!env->exists(static_cast<const Variable &>(*a.left).name))
-          env->globals.insert(static_cast<const Variable &>(*a.left).name);
+          env->globals.insert(std::make_pair(
+              static_cast<const Variable &>(*a.left).name, AnalyzerVariable()));
         else
           errors.emplace_back("The variable was already declared before",
                               a.left->location);
       } else
-        env->variables.insert(static_cast<const Variable &>(*a.left).name);
+        env->variables.insert(
+            {static_cast<const Variable &>(*a.left).name, AnalyzerVariable()});
       return;
     }
     AnalyzeExpression(*a.left);
@@ -112,6 +96,8 @@ void Analyzer::AnalyzeOutput(const Output &stmt) {
 }
 
 void Analyzer::AnalyzeExpressionStmt(const ExpressionStmt &stmt) {
+  if (!utils::CheckModifiers(*stmt.expr, stmt.mods))
+    errors.emplace_back("Invalid Modifier(s)", stmt.location);
   return AnalyzeExpression(*stmt.expr);
 }
 
@@ -134,7 +120,7 @@ void Analyzer::AnalyzeIf(const IfStatement &stmt) {
 
 void Analyzer::AnalyzeFor(const For &stmt) {
   newScope();
-  env->variables.insert(stmt.iterator);
+  env->variables.insert({stmt.iterator, AnalyzerVariable()});
   if (stmt.Initialvalue)
     AnalyzeExpression(*stmt.Initialvalue);
   AnalyzeExpression(*stmt.Finalvalue);
@@ -147,9 +133,9 @@ void Analyzer::AnalyzeFor(const For &stmt) {
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   int8_t previous = 0;
   if (env->parent && !utils::isGlobal(currentmodifers))
-    env->variables.insert(stmt.name);
+    env->variables.insert({stmt.name, AnalyzerVariable()});
   else
-    env->globals.insert(stmt.name);
+    env->globals.insert({stmt.name, AnalyzerVariable()});
   if (utils::isDynamic(currentmodifers)) {
     previous |= ignoreVariables;
     ignoreVariables = true;
@@ -158,7 +144,7 @@ void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   insidefunction = true;
   newScope();
   for (auto &par : stmt.parameters) {
-    env->variables.insert(par);
+    env->variables.insert({par, AnalyzerVariable()});
   }
   analyze(*stmt.Instructions);
   insidefunction = previous & 0b10;

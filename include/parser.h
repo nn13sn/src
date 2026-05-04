@@ -1,6 +1,7 @@
 #pragma once
 #include "AST.h"
 #include "lexer.h"
+#include "parser_error.h"
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -10,13 +11,6 @@
 #define OPENCURLYBRACKET "Expected \"{\""
 #define PARSER_OK 1
 #define PARSER_ERROR -1
-
-struct ParserError {
-  std::string err;
-  Location loc;
-  ParserError(const std::string &error, const Location &location)
-      : err(error), loc(location) {};
-};
 
 class Parser {
 private:
@@ -64,7 +58,7 @@ private:
   Datatype getDatatype();
   Datatype getDatatype(const Keyword &keyword);
   std::variant<int64_t, unsigned char, std::string, double, bool,
-               std::vector<Value>>
+               std::vector<Literal>>
   getData();
 
 public:

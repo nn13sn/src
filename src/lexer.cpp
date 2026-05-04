@@ -13,15 +13,6 @@ void Lexer::readFile(std::string name) {
   }
 }
 
-Token::Token(TokenType type, const uint8_t &value, std::string lexeme,
-             size_t lineID, size_t columnID) {
-  this->type = type;
-  this->value = value;
-  this->lexeme = lexeme;
-  this->lineID = lineID;
-  this->columnID = columnID;
-}
-
 void Lexer::unexEnd() {
   if (pos == Initialcode[i].size())
     throw std::invalid_argument("Unexpected ending");

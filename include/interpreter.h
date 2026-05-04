@@ -1,5 +1,7 @@
 #pragma once
 #include "AST.h"
+#include "environment.h"
+#include "interpreter_error.h"
 #include "runtime_value.h"
 #include "utils.h"
 #include <cmath>
@@ -8,30 +10,8 @@
 #include <string>
 #include <unordered_map>
 
-struct Environment;
-
-class interpreter_error : public std::runtime_error {
-public:
-  Location location;
-  interpreter_error(const std::string &msg, const Location &loc);
-};
-
-struct Function {
-  const FunctionStatement *declaration;
-};
-
 struct ReturnException {
   RuntimeValue value;
-};
-
-struct Environment {
-  std::unordered_map<std::string, RuntimeValue> values = {};
-  inline static std::unordered_map<std::string, RuntimeValue> globals = {};
-  std::shared_ptr<Environment> parent = nullptr;
-  RuntimeValue get(const std::string &name);
-  RuntimeValue *getPointer(const std::string &name);
-  void set(const std::string &name, const RuntimeValue &value);
-  bool newGlobal(const std::string &name, const RuntimeValue &value);
 };
 
 class Interpreter {
@@ -96,6 +76,6 @@ private:
   void popScope();
   RuntimeValue validCheck(const RuntimeValue &value, const Location &loc,
                           const std::string &name);
-  RuntimeValue *validCheck(RuntimeValue *ptr, const Location &loc,
-                           const std::string &name);
+  RuntimeVariable *validCheck(RuntimeVariable *ptr, const Location &loc,
+                              const std::string &name);
 };
