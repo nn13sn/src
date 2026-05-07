@@ -15,7 +15,7 @@ out(a)
 out("\ngot here\n")
 }
 }
-second = 2
+const second = 2
 first = 1
 operator = '+'
 if(operator == '+' &&  first == 1 && second == 2) {out("works\n")}
@@ -24,6 +24,7 @@ while(!(i<5)){
 	out("3\n")
 i--
 }
+const i = 4
 5 + 3 / 2
 dynamic for(i= -5 -> 8 : ++i){
 	for(y->10){
@@ -43,4 +44,3 @@ out(sum(2,3))
 {
 get()
 }
-

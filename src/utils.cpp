@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "runtime_value.h"
+#include "tokens.h"
 bool utils::isNumerical(const RuntimeValue &value) {
   if (value.getType() == Datatype::Int || value.getType() == Datatype::Char ||
       value.getType() == Datatype::Double || value.getType() == Datatype::Bool)
@@ -30,9 +31,20 @@ bool utils::isExpression(const TokenType &type) {
   return false;
 }
 
+bool utils::isModifier(const Token &token) {
+  if (token.type != TokenType::Keyword)
+    return false;
+  auto keyword = static_cast<Keyword>(token.value);
+  if (keyword == Keyword::Dynamic || keyword == Keyword::Global ||
+      keyword == Keyword::Const)
+    return true;
+  return false;
+}
+
 bool utils::CheckModifiers(const StmtType &type, const int32_t &modifiers) {
   static constexpr std::array<int32_t, static_cast<size_t>(StmtType::Amount)>
-      AllowedStmt{0b00, 0b00, 0b11, 0b00, 0b00, 0b10, 0b11, 0b00, 0b00};
+      AllowedStmt{0b000, 0b000, 0b101, 0b000, 0b000,
+                  0b010, 0b111, 0b000, 0b000};
   if (modifiers & ~AllowedStmt[static_cast<size_t>(type)])
     // the idea of creating a table of allowed is mine,
     // but I had to research to get the such if statement here
@@ -41,7 +53,7 @@ bool utils::CheckModifiers(const StmtType &type, const int32_t &modifiers) {
 }
 
 bool utils::CheckModifiers(const Expression &expr, const int32_t &modifiers) {
-  static constexpr int32_t AllowedDef = 0b01;
+  static constexpr int32_t AllowedDef = 0b101;
   if (expr.ExpressionType == ExprType::Binary &&
       static_cast<const Binary &>(expr).op == Operator::Def) {
     if (modifiers & ~AllowedDef)
@@ -59,4 +71,8 @@ bool utils::isGlobal(const int32_t &modifiers) {
 
 bool utils::isDynamic(const int32_t &modifiers) {
   return (modifiers & MOD_DYNAMIC) ? true : false;
+}
+
+bool utils::isConst(const int32_t &modifiers) {
+  return (modifiers & MOD_CONST) ? true : false;
 }

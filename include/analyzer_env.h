@@ -7,15 +7,15 @@ struct AnalyzerEnv {
   std::unordered_map<std::string, AnalyzerVariable> variables = {};
   inline static std::unordered_map<std::string, AnalyzerVariable> globals = {};
   AnalyzerEnv *parent = nullptr;
-  bool exists(const std::string &name);
+  AnalyzerVariable *exists(const std::string &name);
 };
 
-inline bool AnalyzerEnv::exists(const std::string &name) {
-  if (globals.find(name) != globals.end())
-    return true;
-  if (variables.find(name) != variables.end())
-    return true;
+inline AnalyzerVariable *AnalyzerEnv::exists(const std::string &name) {
+  if (auto a = globals.find(name); a != globals.end())
+    return &a->second;
+  if (auto a = variables.find(name); a != variables.end())
+    return &a->second;
   if (parent)
     return parent->exists(name);
-  return false;
+  return nullptr;
 }

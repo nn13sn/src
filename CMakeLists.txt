@@ -9,6 +9,7 @@ add_executable(DoubleC
     src/interpreter.cpp
     src/analyzer.cpp
     src/runtime_value.cpp
+    src/runtime_variable.cpp
     src/environment.cpp
     src/utils.cpp
 )

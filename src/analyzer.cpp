@@ -12,52 +12,12 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
           SemanticError("Undefined variable", expr.location));
     return;
   }
-  case ExprType::Binary: {
-    const auto &a = static_cast<const Binary &>(expr);
-    if (a.op == Operator::Def) {
-      if (a.left->ExpressionType != ExprType::Variable)
-        errors.push_back(SemanticError(
-            "The definition operator can only be used to variables",
-            a.location));
-      AnalyzeExpression(*a.right);
-      if (utils::isGlobal(currentmodifers)) {
-        if (!env->exists(static_cast<const Variable &>(*a.left).name))
-          env->globals.insert(std::make_pair(
-              static_cast<const Variable &>(*a.left).name, AnalyzerVariable()));
-        else
-          errors.emplace_back("The variable was already declared before",
-                              a.left->location);
-      } else
-        env->variables.insert(
-            {static_cast<const Variable &>(*a.left).name, AnalyzerVariable()});
-      return;
-    }
-    AnalyzeExpression(*a.left);
-    return AnalyzeExpression(*a.right);
-  }
-  case ExprType::Unary: {
-    const auto &a = static_cast<const Unary &>(expr);
-    switch (a.op) {
-    case Operator::PreIncr:
-    case Operator::PostIncr:
-      if (a.expr->ExpressionType != ExprType::Variable) {
-        return errors.push_back(SemanticError(
-            "The increment operator can be only used to variables",
-            a.location));
-      }
-      return AnalyzeExpression(*a.expr);
-    case Operator::PreDecr:
-    case Operator::PostDecr:
-      if (a.expr->ExpressionType != ExprType::Variable) {
-        return errors.push_back(SemanticError(
-            "The decrement operator can be only used to variables",
-            a.location));
-      }
-      return AnalyzeExpression(*a.expr);
-    default:
-      return AnalyzeExpression(*a.expr);
-    }
-  }
+  case ExprType::Binary:
+    AnalyzeBinary(static_cast<const Binary &>(expr));
+    return;
+  case ExprType::Unary:
+    AnalyzeUnary(static_cast<const Unary &>(expr));
+    return;
   case ExprType::Cast:
     return AnalyzeExpression(*static_cast<const Cast &>(expr).expr);
   case ExprType::exprValue:
@@ -74,6 +34,76 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
   }
   default:
     errors.emplace_back("Unrecongnized Expression", expr.location);
+  }
+}
+
+void Analyzer::AnalyzeBinary(const Binary &expr) {
+  if (expr.op == Operator::Def) {
+    if (expr.left->ExpressionType != ExprType::Variable)
+      errors.push_back(
+          SemanticError("The definition operator can only be used to variables",
+                        expr.location));
+    AnalyzeExpression(*expr.right);
+    if (utils::isGlobal(currentmodifers)) {
+      if (!env->exists(static_cast<const Variable &>(*expr.left).name))
+        env->globals.insert(
+            std::make_pair(static_cast<const Variable &>(*expr.left).name,
+                           AnalyzerVariable()));
+      else
+        errors.emplace_back("The variable was already declared before",
+                            expr.left->location);
+    } else {
+      if (auto a = env->exists(static_cast<const Variable &>(*expr.left).name);
+          a) {
+        if (!a->isallowed())
+          errors.emplace_back("Cannot re-define a constant variable",
+                              expr.left->location);
+        return;
+      }
+      auto var = AnalyzerVariable();
+      if (utils::isConst(currentmodifers))
+        var.isConst = true;
+      env->variables.insert(
+          {static_cast<const Variable &>(*expr.left).name, var});
+    }
+    return;
+  }
+  AnalyzeExpression(*expr.left);
+  return AnalyzeExpression(*expr.right);
+}
+
+void Analyzer::AnalyzeUnary(const Unary &expr) {
+  switch (expr.op) {
+  case Operator::PreIncr:
+  case Operator::PostIncr:
+    if (expr.expr->ExpressionType != ExprType::Variable) {
+      return errors.push_back(
+          SemanticError("The increment operator can be only used to variables",
+                        expr.location));
+    }
+    AnalyzeExpression(*expr.expr);
+    if (!env->exists(static_cast<const Variable &>(*expr.expr).name)
+             ->isallowed())
+      errors.emplace_back(
+          "The increment operator cannot be used to constant variables",
+          expr.expr->location);
+    return;
+  case Operator::PreDecr:
+  case Operator::PostDecr:
+    if (expr.expr->ExpressionType != ExprType::Variable) {
+      return errors.push_back(
+          SemanticError("The decrement operator can be only used to variables",
+                        expr.location));
+    }
+    AnalyzeExpression(*expr.expr);
+    if (!env->exists(static_cast<const Variable &>(*expr.expr).name)
+             ->isallowed())
+      errors.emplace_back(
+          "The decrement operator cannot be used to constant variables",
+          expr.expr->location);
+    return;
+  default:
+    return AnalyzeExpression(*expr.expr);
   }
 }
 
@@ -120,22 +150,40 @@ void Analyzer::AnalyzeIf(const IfStatement &stmt) {
 
 void Analyzer::AnalyzeFor(const For &stmt) {
   newScope();
-  env->variables.insert({stmt.iterator, AnalyzerVariable()});
+  if (auto a = env->exists(stmt.iterator)) {
+    if (!a->isallowed())
+      errors.emplace_back(
+          "Cannot use a constant or locked variable as an iterator",
+          stmt.location);
+  } else
+    env->variables.insert({stmt.iterator, AnalyzerVariable()});
+  auto iterator = env->exists(stmt.iterator);
+  if (!utils::isDynamic(stmt.mods))
+    iterator->lock();
   if (stmt.Initialvalue)
     AnalyzeExpression(*stmt.Initialvalue);
   AnalyzeExpression(*stmt.Finalvalue);
   if (stmt.step)
     AnalyzeExpression(*stmt.step);
   analyze(*stmt.Instructions);
+  if (!utils::isDynamic(stmt.mods))
+    iterator->unlock();
   removeScope();
 }
 
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   int8_t previous = 0;
+  if (auto a = env->exists(stmt.name); a && !a->isallowed()) {
+    errors.emplace_back("Cannot re-define a constant function", stmt.location);
+    return;
+  }
+  auto var = AnalyzerVariable();
+  if (utils::isConst(stmt.mods))
+    var.isConst = true;
   if (env->parent && !utils::isGlobal(currentmodifers))
-    env->variables.insert({stmt.name, AnalyzerVariable()});
+    env->variables.insert({stmt.name, var});
   else
-    env->globals.insert({stmt.name, AnalyzerVariable()});
+    env->globals.insert({stmt.name, var});
   if (utils::isDynamic(currentmodifers)) {
     previous |= ignoreVariables;
     ignoreVariables = true;

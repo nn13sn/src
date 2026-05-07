@@ -9,6 +9,6 @@ struct Environment {
   RuntimeVariable get(const std::string &name);
   RuntimeVariable *getPointer(const std::string &name);
   void set(const std::string &name, const RuntimeValue &value,
-           const Location &loc);
+           const Location &loc, const int32_t &mods);
   bool newGlobal(const std::string &name, const RuntimeValue &value);
 };

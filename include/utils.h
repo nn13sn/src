@@ -14,6 +14,8 @@ bool isArrow(const Operator &op);
 
 bool isExpression(const TokenType &type);
 
+bool isModifier(const Token &token);
+
 bool CheckModifiers(const StmtType &type, const int32_t &modifiers);
 
 bool CheckModifiers(const Expression &expr, const int32_t &modifiers);
@@ -21,5 +23,7 @@ bool CheckModifiers(const Expression &expr, const int32_t &modifiers);
 bool isGlobal(const int32_t &modifiers);
 
 bool isDynamic(const int32_t &modifiers);
+
+bool isConst(const int32_t &modifiers);
 
 } // namespace utils

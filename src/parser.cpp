@@ -508,23 +508,32 @@ std::unique_ptr<Statement> Parser::ParseReturn() {
   return stmt;
 }
 
-std::unique_ptr<Statement> Parser::ParseGlobal() {
+std::unique_ptr<Statement> Parser::ParseModifiers() {
+  Keyword keywrd = static_cast<Keyword>(peek().value);
   advance();
   auto stmt = MakeStatement();
-  if (stmt->mods & MOD_GLOBAL)
-    SyntaxErr("Duplication of dynamic modifier");
-  else
-    stmt->mods |= MOD_GLOBAL;
-  return stmt;
-}
-
-std::unique_ptr<Statement> Parser::ParseDynamic() {
-  advance();
-  auto stmt = MakeStatement();
-  if (stmt->mods & MOD_DYNAMIC)
-    SyntaxErr("Duplication of dynamic modifier");
-  else
-    stmt->mods |= MOD_DYNAMIC;
+  switch (keywrd) {
+  case Keyword::Global:
+    if (stmt->mods & MOD_GLOBAL)
+      SyntaxErr("Duplication of global modifier");
+    else
+      stmt->mods |= MOD_GLOBAL;
+    return stmt;
+  case Keyword::Dynamic:
+    if (stmt->mods & MOD_DYNAMIC)
+      SyntaxErr("Duplication of dynamic modifier");
+    else
+      stmt->mods |= MOD_DYNAMIC;
+    return stmt;
+  case Keyword::Const:
+    if (stmt->mods & MOD_CONST)
+      SyntaxErr("Duplication of const modifier");
+    else
+      stmt->mods |= MOD_CONST;
+    return stmt;
+  default:
+    SyntaxErr("Unknown modifier");
+  }
   return stmt;
 }
 
@@ -548,10 +557,8 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
       return ParseFunction();
     else if (Check(Keyword::Return))
       return ParseReturn();
-    else if (Check(Keyword::Global))
-      return ParseGlobal();
-    else if (Check(Keyword::Dynamic))
-      return ParseDynamic();
+    else if (utils::isModifier(peek()))
+      return ParseModifiers();
     SyntaxErr("Cannot match the Syntax");
     return nullptr;
   } catch (const ParserError &err) {

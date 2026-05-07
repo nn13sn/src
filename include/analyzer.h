@@ -12,6 +12,8 @@ class Analyzer {
   int32_t currentmodifers = 0;
   bool ignoreVariables = false;
   void AnalyzeExpression(const Expression &expr);
+  void AnalyzeBinary(const Binary &expr);
+  void AnalyzeUnary(const Unary &expr);
   void AnalyzeInput(const Input &stmt);
   void AnalyzeOutput(const Output &stmt);
   void AnalyzeExpressionStmt(const ExpressionStmt &stmt);

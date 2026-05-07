@@ -40,7 +40,7 @@ RuntimeValue Interpreter::eval(const Expression &expr) {
     return static_cast<const exprValue &>(expr).value;
   case ExprType::Variable: {
     auto var = static_cast<const Variable &>(expr);
-    return validCheck(environment->get(var.name).value, var.location, var.name);
+    return validCheck(environment->get(var.name).get(), var.location, var.name);
   }
   case ExprType::FunctionCall:
     return evalFunctionCall(static_cast<const FunctionCall &>(expr));
@@ -139,10 +139,10 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
   try {
     auto func = validCheck(environment->getPointer(expr.name), expr.location,
                            expr.name);
-    if (func->value.getType() != Datatype::Function)
+    if (func->get().getType() != Datatype::Function)
       throw interpreter_error(expr.name + " is not a function to call",
                               expr.location);
-    auto realfunc = std::get<std::shared_ptr<Function>>(func->value.getData());
+    auto realfunc = std::get<std::shared_ptr<Function>>(func->get().getData());
     if (realfunc->declaration->parameters.size() != expr.parameters.size())
       throw interpreter_error(
           "Expected paramters: " +
@@ -157,7 +157,7 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
     insidefunction = true;
     for (size_t i = 0; i < expr.parameters.size(); i++) {
       environment->set(realfunc->declaration->parameters[i],
-                       eval(*expr.parameters[i]), expr.location);
+                       eval(*expr.parameters[i]), expr.location, currentmods);
     }
     for (size_t i = 0;
          i < realfunc->declaration->Instructions->statements.size(); i++) {
@@ -276,8 +276,8 @@ RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    b->value.increment(expr.location);
-    return b->value;
+    b->increment(expr.location);
+    return b->get();
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
@@ -288,8 +288,8 @@ RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
   if (expr.expr->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    b->value.decrement(expr.location);
-    return b->value;
+    b->decrement(expr.location);
+    return b->get();
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
@@ -301,8 +301,8 @@ RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     auto c = *b;
-    b->value.increment(expr.location);
-    return c.value;
+    b->increment(expr.location);
+    return c.get();
   } else
     throw interpreter_error(
         "The increment operator cannot only be used with variables",
@@ -314,8 +314,8 @@ RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
     const auto &a = static_cast<const Variable &>(*expr.expr);
     auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
     auto c = *b;
-    b->value.decrement(expr.location);
-    return c.value;
+    b->decrement(expr.location);
+    return c.get();
   } else
     throw interpreter_error(
         "The decrement operator cannot only be used with variables",
@@ -326,12 +326,7 @@ RuntimeValue Interpreter::evalDef(const Binary &expr) {
   if (expr.left->ExpressionType == ExprType::Variable) {
     const auto &a = static_cast<const Variable &>(*expr.left);
     auto right = eval(*expr.right);
-    if (utils::isGlobal(currentmods)) {
-      if (!environment->newGlobal(a.name, right))
-        throw interpreter_error("A variable was already declated",
-                                expr.location);
-    } else
-      environment->set(a.name, right, expr.location);
+    environment->set(a.name, right, expr.location, currentmods);
     return right;
   } else
     throw interpreter_error(
@@ -492,7 +487,7 @@ void Interpreter::input(const Input &stmt) {
     const auto &a = static_cast<const Variable &>(*stmt.input);
     std::string str;
     std::cin >> str;
-    environment->set(a.name, {Datatype::String, str}, a.location);
+    environment->set(a.name, {Datatype::String, str}, a.location, currentmods);
     return;
   } else if (stmt.input->ExpressionType == ExprType::Cast) {
     const auto &a = static_cast<const Cast &>(*stmt.input);
@@ -500,8 +495,9 @@ void Interpreter::input(const Input &stmt) {
       const auto &b = static_cast<const Variable &>(*a.expr);
       std::string str;
       std::cin >> str;
-      environment->set(b.name, {Datatype::String, str}, b.location);
-      environment->set(b.name, convertString(a), b.location);
+      environment->set(b.name, {Datatype::String, str}, b.location,
+                       currentmods);
+      environment->set(b.name, convertString(a), b.location, currentmods);
       return;
     }
   }
@@ -598,27 +594,31 @@ void Interpreter::forloop(const For &stmt) {
   auto op = stmt.op;
   int64_t Final;
   int64_t step = -1;
+
   if (stmt.Initialvalue == nullptr) {
     if (!environment->getPointer(stmt.iterator)) {
-      environment->set(stmt.iterator, {Datatype::Int, 0}, stmt.location);
+      environment->set(stmt.iterator, {Datatype::Int, 0}, stmt.location,
+                       stmt.mods);
     }
   } else {
     if (auto a = environment->getPointer(stmt.iterator))
-      *a = eval(*stmt.Initialvalue);
+      a->set(eval(*stmt.Initialvalue), stmt.location);
     else
       environment->set(stmt.iterator, eval(*stmt.Initialvalue),
-                       stmt.Initialvalue->location);
+                       stmt.Initialvalue->location, stmt.mods);
   }
+
   signed char direction = -1;
   auto Initial = environment->getPointer(stmt.iterator);
   if (auto a = eval(*stmt.Finalvalue);
       a.getType() == Datatype::Int &&
-      Initial->value.getType() == Datatype::Int) {
+      Initial->get().getType() == Datatype::Int) {
     Final = std::get<int64_t>(a.getData());
   } else
     throw interpreter_error("The for loop requires integer bounds",
                             stmt.location);
-  auto localIterator = std::get<int64_t>(Initial->value.getData());
+  auto localIterator = std::get<int64_t>(Initial->get().getData());
+
   if (stmt.op == Operator::Arrow) {
     if (localIterator < Final)
       direction = step = 1;
@@ -639,26 +639,27 @@ void Interpreter::forloop(const For &stmt) {
       throw interpreter_error("The for loop requires integer step",
                               stmt.location);
   }
+
   if (utils::isDynamic(stmt.mods)) {
-    while (getCond(std::get<int64_t>(Initial->value.getData()), Final,
+    while (getCond(std::get<int64_t>(Initial->get().getData()), Final,
                    direction, op)) {
       addScope();
       execute(*stmt.Instructions);
       popScope();
-      if (Initial->value.getType() != Datatype::Int)
+      if (Initial->get().getType() != Datatype::Int)
         // in case if the iterator was changed to another data type inside the
         // loop
         throw interpreter_error("The iterator must stay integer",
                                 stmt.location);
       if (stmt.step) {
         eval(*stmt.step);
-        if (Initial->value.getType() != Datatype::Int)
+        if (Initial->get().getType() != Datatype::Int)
           throw interpreter_error("The iterator must stay integer",
                                   stmt.location);
         // in case if the step can change the data type of an iterator
       } else {
-        Initial->value.setData(
-            std::get<int64_t>(Initial->value.getData()) + step, stmt.location);
+        Initial->setData(std::get<int64_t>(Initial->get().getData()) + step,
+                         stmt.location);
       }
       if (auto a = eval(*stmt.Finalvalue); a.getType() == Datatype::Int)
         Final = std::get<int64_t>(a.getData());
@@ -667,13 +668,15 @@ void Interpreter::forloop(const For &stmt) {
                                 stmt.Finalvalue->location);
     }
   } else {
+    Initial->lock();
     while (getCond(localIterator, Final, direction, op)) {
       addScope();
       execute(*stmt.Instructions);
       popScope();
       localIterator += step;
-      Initial->value.setData(localIterator, stmt.location);
+      Initial->get().setData(localIterator, stmt.location);
     }
+    Initial->unlock();
   }
   popScope();
 }
@@ -681,10 +684,9 @@ void Interpreter::forloop(const For &stmt) {
 void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
                     std::make_shared<Function>(Function{&stmt}));
-  if (environment->parent && !utils::isGlobal(stmt.mods))
-    environment->set(stmt.name, Func, stmt.location);
-  else
-    environment->newGlobal(stmt.name, Func);
+  if (!environment->parent)
+    currentmods |= MOD_GLOBAL;
+  environment->set(stmt.name, Func, stmt.location, currentmods);
 }
 
 void Interpreter::returnStatement(const ReturnStatement &stmt) {

@@ -33,6 +33,7 @@ enum class Keyword : uint8_t {
   Return,
   Global,
   Dynamic,
+  Const,
   Invalid
 };
 

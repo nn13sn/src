@@ -23,12 +23,20 @@ RuntimeVariable *Environment::getPointer(const std::string &name) {
 }
 
 void Environment::set(const std::string &name, const RuntimeValue &value,
-                      const Location &loc) {
+                      const Location &loc, const int32_t &mods) {
   if (auto ptr = getPointer(name)) {
-    ptr->value.set(value, loc);
+    if (mods != 0)
+      throw interpreter_error(
+          "Modifiers can be used only in the first declaration", loc);
+    ptr->set(value, loc);
     return;
   }
-  values[name] = value;
+  RuntimeVariable var{value, utils::isConst(mods)};
+
+  if (utils::isGlobal(mods))
+    globals[name] = var;
+  else
+    values[name] = var;
 }
 
 bool Environment::newGlobal(const std::string &name,

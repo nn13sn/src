@@ -13,7 +13,7 @@
 
 enum class ExprType;
 
-enum Modifiers { MOD_NONE = 0, MOD_GLOBAL = 1, MOD_DYNAMIC = 2 };
+enum Modifiers { MOD_NONE = 0, MOD_GLOBAL = 1, MOD_DYNAMIC = 2, MOD_CONST = 4 };
 
 enum class StmtType {
   Input,
