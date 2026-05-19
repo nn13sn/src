@@ -31,6 +31,7 @@ void Environment::set(const std::string &name, const RuntimeValue &value,
     ptr->set(value, loc);
     return;
   }
+
   RuntimeVariable var{value, utils::isConst(mods)};
 
   if (utils::isGlobal(mods))

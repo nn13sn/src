@@ -9,7 +9,7 @@ class Analyzer {
   std::vector<SemanticError> errors = {};
   AnalyzerEnv *env = new AnalyzerEnv;
   bool insidefunction = false;
-  int32_t currentmodifers = 0;
+  int32_t currentmodifiers = 0;
   bool ignoreVariables = false;
   void AnalyzeExpression(const Expression &expr);
   void AnalyzeBinary(const Binary &expr);

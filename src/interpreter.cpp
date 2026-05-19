@@ -145,9 +145,9 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
     auto realfunc = std::get<std::shared_ptr<Function>>(func->get().getData());
     if (realfunc->declaration->parameters.size() != expr.parameters.size())
       throw interpreter_error(
-          "Expected paramters: " +
+          "Expected parameters: " +
               std::to_string(realfunc->declaration->parameters.size()) +
-              " and given parameters are " +
+              ", and given parameters are: " +
               std::to_string(expr.parameters.size()),
           expr.location);
     if (utils::isDynamic(realfunc->declaration->mods))
@@ -273,64 +273,40 @@ RuntimeValue Interpreter::evalNegative(const Unary &expr) {
 }
 
 RuntimeValue Interpreter::evalPreIncr(const Unary &expr) {
-  if (expr.expr->ExpressionType == ExprType::Variable) {
-    const auto &a = static_cast<const Variable &>(*expr.expr);
-    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    b->increment(expr.location);
-    return b->get();
-  } else
-    throw interpreter_error(
-        "The increment operator cannot only be used with variables",
-        expr.location);
+  const auto &a = static_cast<const Variable &>(*expr.expr);
+  auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
+  b->increment(expr.location);
+  return b->get();
 }
 
 RuntimeValue Interpreter::evalPreDecr(const Unary &expr) {
-  if (expr.expr->ExpressionType == ExprType::Variable) {
-    const auto &a = static_cast<const Variable &>(*expr.expr);
-    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    b->decrement(expr.location);
-    return b->get();
-  } else
-    throw interpreter_error(
-        "The decrement operator cannot only be used with variables",
-        expr.location);
+  const auto &a = static_cast<const Variable &>(*expr.expr);
+  auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
+  b->decrement(expr.location);
+  return b->get();
 }
 
 RuntimeValue Interpreter::evalPostIncr(const Unary &expr) {
-  if (expr.expr->ExpressionType == ExprType::Variable) {
-    const auto &a = static_cast<const Variable &>(*expr.expr);
-    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    auto c = *b;
-    b->increment(expr.location);
-    return c.get();
-  } else
-    throw interpreter_error(
-        "The increment operator cannot only be used with variables",
-        expr.location);
+  const auto &a = static_cast<const Variable &>(*expr.expr);
+  auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
+  auto c = *b;
+  b->increment(expr.location);
+  return c.get();
 }
 
 RuntimeValue Interpreter::evalPostDecr(const Unary &expr) {
-  if (expr.expr->ExpressionType == ExprType::Variable) {
-    const auto &a = static_cast<const Variable &>(*expr.expr);
-    auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
-    auto c = *b;
-    b->decrement(expr.location);
-    return c.get();
-  } else
-    throw interpreter_error(
-        "The decrement operator cannot only be used with variables",
-        expr.location);
+  const auto &a = static_cast<const Variable &>(*expr.expr);
+  auto b = validCheck(environment->getPointer(a.name), a.location, a.name);
+  auto c = *b;
+  b->decrement(expr.location);
+  return c.get();
 }
 
 RuntimeValue Interpreter::evalDef(const Binary &expr) {
-  if (expr.left->ExpressionType == ExprType::Variable) {
-    const auto &a = static_cast<const Variable &>(*expr.left);
-    auto right = eval(*expr.right);
-    environment->set(a.name, right, expr.location, currentmods);
-    return right;
-  } else
-    throw interpreter_error(
-        "The definition operator can only be used to variables", expr.location);
+  const auto &a = static_cast<const Variable &>(*expr.left);
+  auto right = eval(*expr.right);
+  environment->set(a.name, right, expr.location, currentmods);
+  return right;
 }
 
 RuntimeValue Interpreter::evalAdd(const RuntimeValue &left,
@@ -476,11 +452,7 @@ bool Interpreter::isTrue(const RuntimeValue &value, const Location &loc) {
   }
 }
 
-void Interpreter::expression(const ExpressionStmt &stmt) {
-  if (!utils::CheckModifiers(*stmt.expr, stmt.mods))
-    throw interpreter_error("Invalid modifer(s)", stmt.location);
-  eval(*stmt.expr);
-}
+void Interpreter::expression(const ExpressionStmt &stmt) { eval(*stmt.expr); }
 
 void Interpreter::input(const Input &stmt) {
   if (stmt.input->ExpressionType == ExprType::Variable) {
@@ -501,8 +473,6 @@ void Interpreter::input(const Input &stmt) {
       return;
     }
   }
-  throw interpreter_error(
-      "The expressions cannot be used in the input function", stmt.location);
 }
 
 void Interpreter::output(const Output &stmt) {
@@ -625,12 +595,9 @@ void Interpreter::forloop(const For &stmt) {
   } else if (stmt.op == Operator::ArrowEq) {
     if (localIterator <= Final)
       direction = step = 1;
-  } else if (stmt.op == Operator::Greater || stmt.op == Operator::Less ||
-             stmt.op == Operator::GreaterEq || stmt.op == Operator::LessEq ||
-             stmt.op == Operator::NotEqual) {
+  } else {
     direction = step = 1;
-  } else
-    throw interpreter_error("Invalid operator", stmt.location);
+  }
   if (stmt.step && !utils::isDynamic(stmt.mods)) {
     auto a = eval(*stmt.step);
     if (a.getType() == Datatype::Int)
@@ -684,7 +651,7 @@ void Interpreter::forloop(const For &stmt) {
 void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
                     std::make_shared<Function>(Function{&stmt}));
-  if (!environment->parent)
+  if (!environment->parent && !environment->getPointer(stmt.name))
     currentmods |= MOD_GLOBAL;
   environment->set(stmt.name, Func, stmt.location, currentmods);
 }
@@ -698,9 +665,6 @@ void Interpreter::returnStatement(const ReturnStatement &stmt) {
 }
 
 void Interpreter::matchStatement(const Statement &stmt) {
-  if (!utils::CheckModifiers(stmt.StatementType, stmt.mods))
-    throw interpreter_error("Invalid modifier(s) for such statement",
-                            stmt.location);
   currentmods = stmt.mods;
   switch (stmt.StatementType) {
   case StmtType::Output:

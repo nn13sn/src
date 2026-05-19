@@ -44,28 +44,9 @@ void Analyzer::AnalyzeBinary(const Binary &expr) {
           SemanticError("The definition operator can only be used to variables",
                         expr.location));
     AnalyzeExpression(*expr.right);
-    if (utils::isGlobal(currentmodifers)) {
-      if (!env->exists(static_cast<const Variable &>(*expr.left).name))
-        env->globals.insert(
-            std::make_pair(static_cast<const Variable &>(*expr.left).name,
-                           AnalyzerVariable()));
-      else
-        errors.emplace_back("The variable was already declared before",
-                            expr.left->location);
-    } else {
-      if (auto a = env->exists(static_cast<const Variable &>(*expr.left).name);
-          a) {
-        if (!a->isallowed())
-          errors.emplace_back("Cannot re-define a constant variable",
-                              expr.left->location);
-        return;
-      }
-      auto var = AnalyzerVariable();
-      if (utils::isConst(currentmodifers))
-        var.isConst = true;
-      env->variables.insert(
-          {static_cast<const Variable &>(*expr.left).name, var});
-    }
+    env->Define(currentmodifiers,
+                static_cast<const Variable &>(*expr.left).name, errors,
+                expr.location);
     return;
   }
   AnalyzeExpression(*expr.left);
@@ -82,11 +63,8 @@ void Analyzer::AnalyzeUnary(const Unary &expr) {
                         expr.location));
     }
     AnalyzeExpression(*expr.expr);
-    if (!env->exists(static_cast<const Variable &>(*expr.expr).name)
-             ->isallowed())
-      errors.emplace_back(
-          "The increment operator cannot be used to constant variables",
-          expr.expr->location);
+    env->exists(static_cast<const Variable &>(*expr.expr).name)
+        ->isallowed(MOD_NONE, errors, expr.location);
     return;
   case Operator::PreDecr:
   case Operator::PostDecr:
@@ -96,11 +74,8 @@ void Analyzer::AnalyzeUnary(const Unary &expr) {
                         expr.location));
     }
     AnalyzeExpression(*expr.expr);
-    if (!env->exists(static_cast<const Variable &>(*expr.expr).name)
-             ->isallowed())
-      errors.emplace_back(
-          "The decrement operator cannot be used to constant variables",
-          expr.expr->location);
+    env->exists(static_cast<const Variable &>(*expr.expr).name)
+        ->isallowed(MOD_NONE, errors, expr.location);
     return;
   default:
     return AnalyzeExpression(*expr.expr);
@@ -116,8 +91,9 @@ void Analyzer::AnalyzeInput(const Input &stmt) {
   if (stmt.input->ExpressionType == ExprType::Cast) {
     const auto &a = static_cast<const Cast &>(*stmt.input);
     if (a.expr->ExpressionType != ExprType::Variable)
-      return errors.push_back(SemanticError(
-          "The variable must be inside the cast operation", a.expr->location));
+      return errors.push_back(
+          SemanticError("The variable inside the cast operation is expected",
+                        a.expr->location));
   }
 }
 
@@ -150,13 +126,7 @@ void Analyzer::AnalyzeIf(const IfStatement &stmt) {
 
 void Analyzer::AnalyzeFor(const For &stmt) {
   newScope();
-  if (auto a = env->exists(stmt.iterator)) {
-    if (!a->isallowed())
-      errors.emplace_back(
-          "Cannot use a constant or locked variable as an iterator",
-          stmt.location);
-  } else
-    env->variables.insert({stmt.iterator, AnalyzerVariable()});
+  env->Define(0, stmt.iterator, errors, stmt.location);
   auto iterator = env->exists(stmt.iterator);
   if (!utils::isDynamic(stmt.mods))
     iterator->lock();
@@ -173,18 +143,10 @@ void Analyzer::AnalyzeFor(const For &stmt) {
 
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   int8_t previous = 0;
-  if (auto a = env->exists(stmt.name); a && !a->isallowed()) {
-    errors.emplace_back("Cannot re-define a constant function", stmt.location);
-    return;
-  }
-  auto var = AnalyzerVariable();
-  if (utils::isConst(stmt.mods))
-    var.isConst = true;
-  if (env->parent && !utils::isGlobal(currentmodifers))
-    env->variables.insert({stmt.name, var});
-  else
-    env->globals.insert({stmt.name, var});
-  if (utils::isDynamic(currentmodifers)) {
+  if (!env->parent && !env->exists(stmt.name))
+    currentmodifiers |= MOD_GLOBAL;
+  env->Define(currentmodifiers, stmt.name, errors, stmt.location);
+  if (utils::isDynamic(env->exists(stmt.name)->mods)) {
     previous |= ignoreVariables;
     ignoreVariables = true;
   }
@@ -192,7 +154,7 @@ void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   insidefunction = true;
   newScope();
   for (auto &par : stmt.parameters) {
-    env->variables.insert({par, AnalyzerVariable()});
+    env->Define(0, par, errors, stmt.location);
   }
   analyze(*stmt.Instructions);
   insidefunction = previous & 0b10;
@@ -215,7 +177,7 @@ void Analyzer::AnalyzeBlock(const BlockStatement &stmt) {
 
 signed char Analyzer::analyze(const Program &program) {
   for (const auto &stmt : program.statements) {
-    currentmodifers = stmt->mods;
+    currentmodifiers = stmt->mods;
     if (!utils::CheckModifiers(stmt->StatementType, stmt->mods))
       errors.emplace_back("The modifier(s) cannot be used to such statement",
                           stmt->location);
