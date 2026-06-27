@@ -1,10 +1,10 @@
-const global c = 5
-in(char(symbol))
+const global  c = 5
+symbol = 'l'
 global function sum(a,b){
 a+b
 return a+b+c
 }
-function sum(a,b,d){
+function sum(const a,b,d){
     return a+b+c
   }
 dynamic function print(){

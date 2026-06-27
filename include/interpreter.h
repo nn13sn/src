@@ -12,6 +12,7 @@
 
 struct ReturnException {
   RuntimeValue value;
+  ReturnException(const RuntimeValue &val) : value(val) {};
 };
 
 class Interpreter {

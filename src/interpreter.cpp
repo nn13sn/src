@@ -143,11 +143,11 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
       throw interpreter_error(expr.name + " is not a function to call",
                               expr.location);
     auto realfunc = std::get<std::shared_ptr<Function>>(func->get().getData());
-    if (realfunc->declaration->parameters.size() != expr.parameters.size())
+    if (realfunc->declaration->params.size() != expr.parameters.size())
       throw interpreter_error(
-          "Expected parameters: " +
-              std::to_string(realfunc->declaration->parameters.size()) +
-              ", and given parameters are: " +
+          "Expected number of parameters is: " +
+              std::to_string(realfunc->declaration->params.size()) +
+              ", and the given number of parameters is: " +
               std::to_string(expr.parameters.size()),
           expr.location);
     if (utils::isDynamic(realfunc->declaration->mods))
@@ -156,8 +156,9 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
       environment = std::make_shared<Environment>(Environment{{}, nullptr});
     insidefunction = true;
     for (size_t i = 0; i < expr.parameters.size(); i++) {
-      environment->set(realfunc->declaration->parameters[i],
-                       eval(*expr.parameters[i]), expr.location, currentmods);
+      environment->set(realfunc->declaration->params[i].name,
+                       eval(*expr.parameters[i]), expr.location,
+                       realfunc->declaration->params[i].mods);
     }
     for (size_t i = 0;
          i < realfunc->declaration->Instructions->statements.size(); i++) {

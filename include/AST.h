@@ -1,5 +1,6 @@
 #pragma once
 #include "datatype.h"
+#include "funcparameter.h"
 #include "literal.h"
 #include "location.h"
 #include "operators.h"
@@ -80,7 +81,7 @@ struct For : Statement {
 
 struct FunctionStatement : Statement {
   std::string name;
-  std::vector<std::string> parameters = {};
+  std::vector<Parameter> params = {};
   std::unique_ptr<Program> Instructions;
 };
 

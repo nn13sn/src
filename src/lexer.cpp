@@ -55,8 +55,8 @@ bool Lexer::isLetter() {
       pos++;
     }
     pos--;
-    auto lexeme = std::string_view(Initialcode[i].data() + startpos,
-                                   Initialcode[i].data() + pos + 1);
+    auto lexeme =
+        std::string_view(Initialcode[i].data() + startpos, pos + 1 - startpos);
     if (lexeme == "true" || lexeme == "false") {
       tokens.back().emplace_back(TokenType::Boolean, UINT8_MAX,
                                  std::string(lexeme), i + 1,

@@ -42,9 +42,7 @@ bool utils::isModifier(const Token &token) {
 }
 
 bool utils::CheckModifiers(const StmtType &type, const int32_t &modifiers) {
-  static constexpr std::array<int32_t, static_cast<size_t>(StmtType::Amount)>
-      AllowedStmt{0b000, 0b000, 0b101, 0b000, 0b000,
-                  0b010, 0b111, 0b000, 0b000};
+
   if (modifiers & ~AllowedStmt[static_cast<size_t>(type)])
     // the idea of creating a table of allowed is mine,
     // but I had to research to get the such if statement here
@@ -53,7 +51,6 @@ bool utils::CheckModifiers(const StmtType &type, const int32_t &modifiers) {
 }
 
 bool utils::CheckModifiers(const Expression &expr, const int32_t &modifiers) {
-  static constexpr int32_t AllowedDef = 0b101;
   if (expr.ExpressionType == ExprType::Binary &&
       static_cast<const Binary &>(expr).op == Operator::Def) {
     if (modifiers & ~AllowedDef)
@@ -63,6 +60,12 @@ bool utils::CheckModifiers(const Expression &expr, const int32_t &modifiers) {
   if (modifiers == MOD_NONE)
     return true;
   return false;
+}
+
+bool utils::CheckModifiers(const Parameter &param) {
+  if (param.mods & ~AllowedParam)
+    return false;
+  return true;
 }
 
 bool utils::isGlobal(const int32_t &modifiers) {

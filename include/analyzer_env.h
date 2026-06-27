@@ -5,6 +5,10 @@
 #include <unordered_map>
 
 struct AnalyzerEnv {
+  AnalyzerEnv() {};
+  AnalyzerEnv(std::unordered_map<std::string, AnalyzerVariable> vars,
+              AnalyzerEnv *par)
+      : variables(vars), parent(par) {};
   std::unordered_map<std::string, AnalyzerVariable> variables = {};
   inline static std::unordered_map<std::string, AnalyzerVariable> globals = {};
   AnalyzerEnv *parent = nullptr;

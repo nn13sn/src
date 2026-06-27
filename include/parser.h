@@ -59,6 +59,7 @@ private:
   std::variant<int64_t, unsigned char, std::string, double, bool,
                std::vector<Literal>>
   getData();
+  void addModifier(int32_t &mods, const Keyword &keywrd);
 
 public:
   Parser(std::vector<std::vector<Token>> &T);

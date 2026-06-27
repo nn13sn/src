@@ -153,8 +153,14 @@ void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
   previous |= insidefunction << 1;
   insidefunction = true;
   newScope();
-  for (auto &par : stmt.parameters) {
-    env->Define(0, par, errors, stmt.location);
+  for (size_t i = 0; i < stmt.params.size(); i++) {
+    if (!utils::CheckModifiers(stmt.params[i]))
+      errors.emplace_back("Parameter number " + std::to_string(i + 1) +
+                              " : Such modifier(s) cannot be used with the "
+                              "parameters of the function",
+                          stmt.location);
+    env->Define(stmt.params[i].mods & utils::AllowedParam, stmt.params[i].name,
+                errors, stmt.location);
   }
   analyze(*stmt.Instructions);
   insidefunction = previous & 0b10;

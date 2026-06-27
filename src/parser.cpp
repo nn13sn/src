@@ -114,6 +114,31 @@ Parser::getData() {
   }
 }
 
+void Parser::addModifier(int32_t &mods, const Keyword &keywrd) {
+  switch (keywrd) {
+  case Keyword::Global:
+    if (mods & MOD_GLOBAL)
+      SyntaxErr("Duplication of global modifier");
+    else
+      mods |= MOD_GLOBAL;
+    return;
+  case Keyword::Dynamic:
+    if (mods & MOD_DYNAMIC)
+      SyntaxErr("Duplication of dynamic modifier");
+    else
+      mods |= MOD_DYNAMIC;
+    return;
+  case Keyword::Const:
+    if (mods & MOD_CONST)
+      SyntaxErr("Duplication of const modifier");
+    else
+      mods |= MOD_CONST;
+    return;
+  default:
+    SyntaxErr("Unknown modifier");
+  }
+}
+
 std::unique_ptr<Program> Parser::MakeBody() {
   auto body = std::make_unique<Program>();
   eatEnd();
@@ -476,10 +501,20 @@ std::unique_ptr<Statement> Parser::ParseFunction() {
     advance();
   else
     SyntaxErr(OPENPARENTHESIS);
-  while (Check(TokenType::Identifier)) {
-    stmt->parameters.push_back(advance().lexeme);
+  while (Check(TokenType::Keyword) || Check(TokenType::Identifier)) {
+    Parameter param;
+    while (Check(TokenType::Keyword)) {
+      addModifier(param.mods, static_cast<Keyword>(peek().value));
+      advance();
+    }
+    if (Check(TokenType::Identifier))
+      param.name = peek().lexeme;
+    else
+      SyntaxErr("The parameter name is expected");
+    advance();
     if (Check(Separator::Comma))
       advance();
+    stmt->params.push_back(param);
   }
   if (Check(Separator::RightParenthesis))
     advance();
@@ -512,28 +547,7 @@ std::unique_ptr<Statement> Parser::ParseModifiers() {
   Keyword keywrd = static_cast<Keyword>(peek().value);
   advance();
   auto stmt = MakeStatement();
-  switch (keywrd) {
-  case Keyword::Global:
-    if (stmt->mods & MOD_GLOBAL)
-      SyntaxErr("Duplication of global modifier");
-    else
-      stmt->mods |= MOD_GLOBAL;
-    return stmt;
-  case Keyword::Dynamic:
-    if (stmt->mods & MOD_DYNAMIC)
-      SyntaxErr("Duplication of dynamic modifier");
-    else
-      stmt->mods |= MOD_DYNAMIC;
-    return stmt;
-  case Keyword::Const:
-    if (stmt->mods & MOD_CONST)
-      SyntaxErr("Duplication of const modifier");
-    else
-      stmt->mods |= MOD_CONST;
-    return stmt;
-  default:
-    SyntaxErr("Unknown modifier");
-  }
+  addModifier(stmt->mods, keywrd);
   return stmt;
 }
 
