@@ -1,5 +1,8 @@
 #include "lexer.h"
-
+#include "operators.h"
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
 void Lexer::readFile(std::string name) {
   std::string line;
   std::ifstream in(name);

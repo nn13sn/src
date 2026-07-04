@@ -9,6 +9,7 @@ class Analyzer {
   std::vector<SemanticError> errors = {};
   AnalyzerEnv *env = new AnalyzerEnv;
   bool insidefunction = false;
+  bool insideLoop = false;
   int32_t currentmodifiers = 0;
   bool ignoreVariables = false;
   void AnalyzeExpression(const Expression &expr);
@@ -19,6 +20,8 @@ class Analyzer {
   void AnalyzeExpressionStmt(const ExpressionStmt &stmt);
   void AnalyzeWhile(const While &stmt);
   void AnalyzeFor(const For &stmt);
+  void AnalyzeBreak(const BreakStmt &stmt);
+  void AnalyzeContinue(const ContinueStmt &stmt);
   void AnalyzeIf(const IfStatement &stmt);
   void AnalyzeFunction(const FunctionStatement &stmt);
   void AnalyzeReturn(const ReturnStatement &stmt);

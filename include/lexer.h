@@ -1,20 +1,17 @@
 #pragma once
-#include "operators.h"
 #include "tokens.h"
 #include <array>
 #include <cstdint>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 class Lexer {
   static constexpr std::array<std::string_view,
                               static_cast<size_t>(Keyword::Invalid)>
-      keywords{"if",     "else",     "true",   "false",  "in",      "out",
-               "double", "int",      "char",   "bool",   "string",  "while",
-               "for",    "function", "return", "global", "dynamic", "const"};
+      keywords{"if",       "else",   "true",   "false",   "in",
+               "out",      "double", "int",    "char",    "bool",
+               "string",   "while",  "for",    "break",   "continue",
+               "function", "return", "global", "dynamic", "const"};
   uint8_t IsKeyword(const std::string_view lexeme);
   std::vector<std::string> Initialcode;
   std::vector<std::vector<Token>> tokens;

@@ -18,19 +18,27 @@ enum class TokenType : uint8_t {
 enum class Keyword : uint8_t {
   If,
   Else,
+
   True,
   False,
+
   In,
   Out,
+
   Double,
   Int,
   Char,
   Bool,
   String,
+
   While,
   For,
+  Break,
+  Continue,
+
   Function,
   Return,
+
   Global,
   Dynamic,
   Const,

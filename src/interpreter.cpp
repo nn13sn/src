@@ -1,6 +1,7 @@
 #include "interpreter.h"
 #include "AST.h"
 #include "runtime_variable.h"
+#include "scope.h"
 #include "utils.h"
 #include <memory>
 
@@ -134,6 +135,7 @@ RuntimeValue Interpreter::eval(const Expression &expr) {
 }
 
 RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
+  std::unique_ptr<Scope> scope;
   auto previous = environment;
   bool previousinside = insidefunction;
   try {
@@ -151,7 +153,7 @@ RuntimeValue Interpreter::evalFunctionCall(const FunctionCall &expr) {
               std::to_string(expr.parameters.size()),
           expr.location);
     if (utils::isDynamic(realfunc->declaration->mods))
-      addScope();
+      scope = std::make_unique<Scope>(*this);
     else
       environment = std::make_shared<Environment>(Environment{{}, nullptr});
     insidefunction = true;
@@ -501,40 +503,41 @@ void Interpreter::output(const Output &stmt) {
 
 void Interpreter::ifStatement(const IfStatement &stmt) {
   if (isTrue(eval(*stmt.expr), stmt.location)) {
-    addScope();
+    Scope scope(*this);
     for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
       matchStatement(*stmt.Instructions->statements[i]);
     }
-    popScope();
   } else if (stmt.elseStatement) {
     if (stmt.elseStatement->expr)
       ifStatement(*stmt.elseStatement);
     else {
-      addScope();
+      Scope scope(*this);
       for (size_t i = 0;
            i < stmt.elseStatement->Instructions->statements.size(); i++) {
         matchStatement(*stmt.elseStatement->Instructions->statements[i]);
       }
-      popScope();
     }
   }
 }
 
 void Interpreter::block(const BlockStatement &stmt) {
-  addScope();
+  Scope scope(*this);
   for (const auto &instr : stmt.instructions->statements) {
     matchStatement(*instr);
   }
-  popScope();
 }
 
 void Interpreter::whileloop(const While &stmt) {
   while (isTrue(eval(*stmt.expr), stmt.location)) {
-    addScope();
-    for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
-      matchStatement(*stmt.Instructions->statements[i]);
+    Scope scope(*this);
+    try {
+      for (size_t i = 0; i < stmt.Instructions->statements.size(); i++) {
+        matchStatement(*stmt.Instructions->statements[i]);
+      }
+    } catch (const BreakException &) {
+      break;
+    } catch (const ContinueException &) {
     }
-    popScope();
   }
 }
 
@@ -561,7 +564,7 @@ bool Interpreter::getCond(const int64_t &Initial, const int64_t Final,
 }
 
 void Interpreter::forloop(const For &stmt) {
-  addScope();
+  Scope scope(*this);
   auto op = stmt.op;
   int64_t Final;
   int64_t step = -1;
@@ -611,9 +614,13 @@ void Interpreter::forloop(const For &stmt) {
   if (utils::isDynamic(stmt.mods)) {
     while (getCond(std::get<int64_t>(Initial->get().getData()), Final,
                    direction, op)) {
-      addScope();
-      execute(*stmt.Instructions);
-      popScope();
+      Scope scope(*this);
+      try {
+        execute(*stmt.Instructions);
+      } catch (const BreakException &) {
+        break;
+      } catch (const ContinueException &) {
+      }
       if (Initial->get().getType() != Datatype::Int)
         // in case if the iterator was changed to another data type inside the
         // loop
@@ -638,16 +645,23 @@ void Interpreter::forloop(const For &stmt) {
   } else {
     Initial->lock();
     while (getCond(localIterator, Final, direction, op)) {
-      addScope();
-      execute(*stmt.Instructions);
-      popScope();
+      Scope scope(*this);
+      try {
+        execute(*stmt.Instructions);
+      } catch (const BreakException &) {
+        break;
+      } catch (const ContinueException &) {
+      }
       localIterator += step;
       Initial->get().setData(localIterator, stmt.location);
     }
     Initial->unlock();
   }
-  popScope();
 }
+
+void Interpreter::Break() { throw BreakException{}; }
+
+void Interpreter::Continue() { throw ContinueException{}; }
 
 void Interpreter::function(const FunctionStatement &stmt) {
   RuntimeValue Func(Datatype::Function,
@@ -680,6 +694,10 @@ void Interpreter::matchStatement(const Statement &stmt) {
     return whileloop(static_cast<const While &>(stmt));
   case StmtType::For:
     return forloop(static_cast<const For &>(stmt));
+  case StmtType::BreakStmt:
+    return Break();
+  case StmtType::ContinueStmt:
+    return Continue();
   case StmtType::FunctionStatement:
     return function(static_cast<const FunctionStatement &>(stmt));
   case StmtType::ReturnStatement:

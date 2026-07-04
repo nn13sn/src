@@ -488,6 +488,22 @@ std::unique_ptr<Statement> Parser::ParseFor() {
   return stmt;
 }
 
+std::unique_ptr<Statement> Parser::ParseBreak() {
+  auto stmt = std::make_unique<BreakStmt>();
+  stmt->StatementType = StmtType::BreakStmt;
+  stmt->location.column = peek().columnID;
+  stmt->location.line = advance().lineID;
+  return stmt;
+}
+
+std::unique_ptr<Statement> Parser::ParseContinue() {
+  auto stmt = std::make_unique<ContinueStmt>();
+  stmt->StatementType = StmtType::ContinueStmt;
+  stmt->location.column = peek().columnID;
+  stmt->location.line = advance().lineID;
+  return stmt;
+}
+
 std::unique_ptr<Statement> Parser::ParseFunction() {
   auto stmt = std::make_unique<FunctionStatement>();
   stmt->StatementType = StmtType::FunctionStatement;
@@ -567,6 +583,10 @@ std::unique_ptr<Statement> Parser::MakeStatement() {
       return ParseWhile();
     else if (Check(Keyword::For))
       return ParseFor();
+    else if (Check(Keyword::Break))
+      return ParseBreak();
+    else if (Check(Keyword::Continue))
+      return ParseContinue();
     else if (Check(Keyword::Function))
       return ParseFunction();
     else if (Check(Keyword::Return))

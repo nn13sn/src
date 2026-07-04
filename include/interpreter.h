@@ -15,9 +15,15 @@ struct ReturnException {
   ReturnException(const RuntimeValue &val) : value(val) {};
 };
 
+struct BreakException {};
+
+struct ContinueException {};
+
 class Interpreter {
 public:
   void execute(const Program &program);
+  void addScope();
+  void popScope();
 
 private:
   bool insidefunction = false;
@@ -31,8 +37,8 @@ private:
   void forloop(const For &stmt);
   bool getCond(const int64_t &Initial, const int64_t Final,
                const signed char &direction, const Operator &op);
-  void forbody(RuntimeValue *&Initial, const signed char &direction,
-               const For &stmt);
+  void Break();
+  void Continue();
   void ifStatement(const IfStatement &stmt);
   void function(const FunctionStatement &stmt);
   void returnStatement(const ReturnStatement &stmt);
@@ -73,8 +79,6 @@ private:
                       const Location &loc);
   RuntimeValue evalLe(const RuntimeValue &left, const RuntimeValue &right,
                       const Location &loc);
-  void addScope();
-  void popScope();
   RuntimeValue validCheck(const RuntimeValue &value, const Location &loc,
                           const std::string &name);
   RuntimeVariable *validCheck(RuntimeVariable *ptr, const Location &loc,

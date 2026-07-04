@@ -109,9 +109,12 @@ void Analyzer::AnalyzeExpressionStmt(const ExpressionStmt &stmt) {
 
 void Analyzer::AnalyzeWhile(const While &stmt) {
   AnalyzeExpression(*stmt.expr);
+  bool prev = insideLoop;
+  insideLoop = true;
   newScope();
   analyze(*stmt.Instructions);
   removeScope();
+  insideLoop = prev;
 }
 
 void Analyzer::AnalyzeIf(const IfStatement &stmt) {
@@ -125,6 +128,8 @@ void Analyzer::AnalyzeIf(const IfStatement &stmt) {
 }
 
 void Analyzer::AnalyzeFor(const For &stmt) {
+  bool prev = insideLoop;
+  insideLoop = true;
   newScope();
   env->Define(0, stmt.iterator, errors, stmt.location);
   auto iterator = env->exists(stmt.iterator);
@@ -139,6 +144,18 @@ void Analyzer::AnalyzeFor(const For &stmt) {
   if (!utils::isDynamic(stmt.mods))
     iterator->unlock();
   removeScope();
+  insideLoop = prev;
+}
+
+void Analyzer::AnalyzeBreak(const BreakStmt &stmt) {
+  if (!insideLoop)
+    errors.emplace_back("Cannot use break outside of the loop", stmt.location);
+}
+
+void Analyzer::AnalyzeContinue(const ContinueStmt &stmt) {
+  if (!insideLoop)
+    errors.emplace_back("Cannot use continue outside of the loop",
+                        stmt.location);
 }
 
 void Analyzer::AnalyzeFunction(const FunctionStatement &stmt) {
@@ -205,6 +222,12 @@ signed char Analyzer::analyze(const Program &program) {
       break;
     case StmtType::For:
       AnalyzeFor(static_cast<const For &>(*stmt));
+      break;
+    case StmtType::BreakStmt:
+      AnalyzeBreak(static_cast<const BreakStmt &>(*stmt));
+      break;
+    case StmtType::ContinueStmt:
+      AnalyzeContinue(static_cast<const ContinueStmt &>(*stmt));
       break;
     case StmtType::FunctionStatement:
       AnalyzeFunction(static_cast<const FunctionStatement &>(*stmt));

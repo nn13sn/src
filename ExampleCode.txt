@@ -26,10 +26,13 @@ i = 10
 while(!(i<5)){
 	out("3\n")
 i--
+if(i==7) {break}
 }
 5 + 3 / 2
 dynamic for(i= -5 -> 8 : ++i){
 	for(y->10){
+		out(7)
+		if(y!=8) {continue}
 		out(y)
 	}
 out("\n") }

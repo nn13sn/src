@@ -23,6 +23,8 @@ enum class StmtType {
   IfStatement,
   While,
   For,
+  BreakStmt,
+  ContinueStmt,
   FunctionStatement,
   ReturnStatement,
   BlockStatement,
@@ -78,6 +80,10 @@ struct For : Statement {
   std::unique_ptr<Expression> Finalvalue;
   std::unique_ptr<Program> Instructions;
 };
+
+struct BreakStmt : Statement {};
+
+struct ContinueStmt : Statement {};
 
 struct FunctionStatement : Statement {
   std::string name;
