@@ -1,5 +1,6 @@
 #pragma once
 #include "AST.h"
+#include "action.h"
 #include "runtime_value.h"
 #include "tokens.h"
 #include <array>
@@ -47,5 +48,7 @@ bool isGlobal(const int32_t &modifiers);
 bool isDynamic(const int32_t &modifiers);
 
 bool isConst(const int32_t &modifiers);
+
+Action getOperatorAction(const Operator &op);
 
 } // namespace utils

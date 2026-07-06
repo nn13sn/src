@@ -12,6 +12,7 @@ add_executable(DoubleC
     src/runtime_variable.cpp
     src/environment.cpp
     src/utils.cpp
+    src/generator.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)

@@ -79,3 +79,16 @@ bool utils::isDynamic(const int32_t &modifiers) {
 bool utils::isConst(const int32_t &modifiers) {
   return (modifiers & MOD_CONST) ? true : false;
 }
+
+Action utils::getOperatorAction(const Operator &op) {
+  switch (op) {
+  case Operator::Add:
+    return Action::Add;
+  case Operator::Div:
+    return Action::Div;
+  case Operator::Mul:
+    return Action::Mul;
+  case Operator::Sub:
+    return Action::Sub;
+  }
+}
