@@ -13,6 +13,7 @@ add_executable(DoubleC
     src/environment.cpp
     src/utils.cpp
     src/generator.cpp
+    src/VM.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)

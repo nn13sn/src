@@ -1,6 +1,7 @@
 #include "AST.h"
+#include "VM.h"
 #include "analyzer.h"
-#include "interpreter.h"
+#include "generator.h"
 #include "lexer.h"
 #include "parser.h"
 #include <iostream>
@@ -26,8 +27,12 @@ int main(int argc, char *argv[]) {
       analyzer.printErrors();
       return -5;
     }
-    Interpreter interpreter;
-    interpreter.execute(program);
+    // Interpreter interpreter;
+    // interpreter.execute(program);
+    Generator generator;
+    auto code = generator.Generate(program);
+    VM vm;
+    vm.evaluate(code);
     return 0;
   } catch (const std::invalid_argument &err) {
     std::cerr << "Lexer error: " << err.what() << std::endl;

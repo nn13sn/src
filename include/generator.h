@@ -3,7 +3,7 @@
 #include "bytecode.h"
 class Generator {
 public:
-  Generator(const Program &program);
+  const Bytecode &Generate(const Program &program);
 
 private:
   void GenerateExpression(const Expression &expr);

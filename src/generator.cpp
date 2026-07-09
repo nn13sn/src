@@ -24,7 +24,7 @@ void Generator::GenerateExpression(const Expression &expr) {
   }
 }
 
-Generator::Generator(const Program &program) {
+const Bytecode &Generator::Generate(const Program &program) {
   for (const auto &stmt : program.statements) {
     switch (stmt->StatementType) {
     case StmtType::ExpressionStmt:
@@ -35,4 +35,5 @@ Generator::Generator(const Program &program) {
       break;
     }
   }
+  return code;
 }
