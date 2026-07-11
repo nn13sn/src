@@ -1,10 +1,11 @@
 #pragma once
 #include "bytecode.h"
 #include "stack.h"
-
+#define VM_ERROR -1
+#define VM_OK 1
 class VM {
 public:
-  void evaluate(const Bytecode &code);
+  signed char evaluate(const Bytecode &code);
 
 private:
   Stack stack;

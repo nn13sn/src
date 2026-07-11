@@ -10,5 +10,6 @@ private:
   Bytecode code;
   uint32_t index = 0;
 
-  void emit(const Action &action, const uint32_t &operand = 0);
+  void emit(const Location &location, const Action &action,
+            const uint32_t &operand = 0);
 };

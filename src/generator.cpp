@@ -2,21 +2,24 @@
 #include "AST.h"
 #include "utils.h"
 
-void Generator::emit(const Action &action, const uint32_t &operand) {
+void Generator::emit(const Location &location, const Action &action,
+                     const uint32_t &operand) {
   code.code.emplace_back(Instruction(action, operand));
+  code.locations.push_back(location);
 }
 
 void Generator::GenerateExpression(const Expression &expr) {
   switch (expr.ExpressionType) {
   case ExprType::exprValue:
     code.values.emplace_back(static_cast<const exprValue &>(expr).value);
-    emit(Action::Push_Value, code.values.size() - 1);
+    emit(expr.location, Action::Push_Value, code.values.size() - 1);
     return;
   case ExprType::Binary: {
     const Binary &binary = static_cast<const Binary &>(expr);
     GenerateExpression(*binary.left);
     GenerateExpression(*binary.right);
-    emit(utils::getOperatorAction(static_cast<const Binary &>(expr).op));
+    emit(binary.location,
+         utils::getOperatorAction(static_cast<const Binary &>(expr).op));
     return;
   }
   default:
@@ -29,7 +32,7 @@ const Bytecode &Generator::Generate(const Program &program) {
     switch (stmt->StatementType) {
     case StmtType::ExpressionStmt:
       GenerateExpression(*static_cast<const ExpressionStmt &>(*stmt).expr);
-      emit(Action::Pop);
+      emit(stmt->location, Action::Pop);
       break;
     default:
       break;

@@ -32,7 +32,9 @@ int main(int argc, char *argv[]) {
     Generator generator;
     auto code = generator.Generate(program);
     VM vm;
-    vm.evaluate(code);
+    auto result = vm.evaluate(code);
+    if (result == VM_ERROR)
+      return -2;
     return 0;
   } catch (const std::invalid_argument &err) {
     std::cerr << "Lexer error: " << err.what() << std::endl;

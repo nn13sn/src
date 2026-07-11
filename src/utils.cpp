@@ -45,7 +45,7 @@ bool utils::CheckModifiers(const StmtType &type, const int32_t &modifiers) {
 
   if (modifiers & ~AllowedStmt[static_cast<size_t>(type)])
     // the idea of creating a table of allowed is mine,
-    // but I had to research to get the such if statement here
+    // but I had to research to make such if statement here
     return false;
   return true;
 }
