@@ -66,6 +66,7 @@ struct Token {
   size_t columnID;
   Token(TokenType type, const uint8_t &value, std::string lexeme, size_t lineID,
         size_t columnID);
+  inline ~Token() = default;
 };
 
 inline Token::Token(TokenType type, const uint8_t &value, std::string lexeme,

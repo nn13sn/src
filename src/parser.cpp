@@ -269,9 +269,8 @@ Parser::ParseBinary(LowFunc ParseLower, const std::vector<Operator> &ops) {
 std::unique_ptr<Expression> Parser::MakeExpression() {
   auto expr = OrParse();
   if (Check(Operator::Def)) {
-    auto def = std::make_unique<Binary>();
-    def->ExpressionType = ExprType::Binary;
-    def->op = Operator::Def;
+    auto def = std::make_unique<Assignment>();
+    def->ExpressionType = ExprType::Assignment;
     def->location.line = peek().lineID;
     def->location.column = advance().columnID;
     def->right = MakeExpression();

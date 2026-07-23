@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(DoubleC LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_executable(DoubleC
     src/main.cpp
     src/lexer.cpp
@@ -23,6 +25,12 @@ target_compile_options(DoubleC PRIVATE
     -Wextra
     -g
     -O0
+    -fsanitize=address
+    -fno-omit-frame-pointer
+)
+
+target_link_options(DoubleC PRIVATE
+    -fsanitize=address
 )
 
 target_include_directories(DoubleC PRIVATE include)

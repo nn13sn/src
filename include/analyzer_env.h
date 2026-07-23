@@ -1,17 +1,24 @@
 #pragma once
 #include "analyzer_variable.h"
+#include "slot_table.h"
 #include "utils.h"
 #include <string>
 #include <unordered_map>
 
 struct AnalyzerEnv {
   AnalyzerEnv() {};
+  AnalyzerEnv(Slot_Table *table) : table(table) {};
   AnalyzerEnv(std::unordered_map<std::string, AnalyzerVariable> vars,
               AnalyzerEnv *par)
-      : variables(vars), parent(par) {};
+      : variables(vars), parent(par) {
+    table = par->table;
+  };
+
   std::unordered_map<std::string, AnalyzerVariable> variables = {};
   inline static std::unordered_map<std::string, AnalyzerVariable> globals = {};
   AnalyzerEnv *parent = nullptr;
+  Slot_Table *table;
+
   AnalyzerVariable *exists(const std::string &name);
   void Define(const int32_t &mods, const std::string &name,
               std::vector<SemanticError> &errors, const Location &loc) {
@@ -19,6 +26,7 @@ struct AnalyzerEnv {
       a->isallowed(mods, errors, loc);
       return;
     }
+    table->slots[name] = table->nextslot++;
     if (utils::isGlobal(mods))
       globals.insert({name, AnalyzerVariable(mods)});
     else

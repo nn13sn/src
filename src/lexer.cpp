@@ -12,7 +12,7 @@ void Lexer::readFile(std::string name) {
     }
   } else {
     std::cout << "Cannot open/find such file\n";
-    std::exit(1);
+    std::exit(-5);
   }
 }
 

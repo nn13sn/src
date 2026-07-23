@@ -2,18 +2,20 @@
 #include "AST.h"
 #include "analyzer_env.h"
 #include "semantic_error.h"
+#include "slot_table.h"
 #define AnalyzerOK 0
 #define AnalyzerError -1
 
 class Analyzer {
   std::vector<SemanticError> errors = {};
-  AnalyzerEnv *env = new AnalyzerEnv;
+  AnalyzerEnv *env = new AnalyzerEnv(&table);
   bool insidefunction = false;
   bool insideLoop = false;
   int32_t currentmodifiers = 0;
   bool ignoreVariables = false;
   void AnalyzeExpression(const Expression &expr);
   void AnalyzeBinary(const Binary &expr);
+  void AnalyzeAssignment(const Assignment &expr);
   void AnalyzeUnary(const Unary &expr);
   void AnalyzeInput(const Input &stmt);
   void AnalyzeOutput(const Output &stmt);
@@ -32,4 +34,6 @@ class Analyzer {
 public:
   void printErrors();
   signed char analyze(const Program &program);
+  Slot_Table table;
+  ~Analyzer() { delete env; }
 };

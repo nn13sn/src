@@ -104,6 +104,7 @@ enum class ExprType {
   Variable,
   FunctionCall,
   Binary,
+  Assignment,
   Unary,
   Cast,
   Amount
@@ -124,6 +125,11 @@ struct FunctionCall : Expression {
 
 struct Binary : Expression {
   Operator op;
+  std::unique_ptr<Expression> right;
+  std::unique_ptr<Expression> left;
+};
+
+struct Assignment : Expression {
   std::unique_ptr<Expression> right;
   std::unique_ptr<Expression> left;
 };

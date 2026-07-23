@@ -22,6 +22,18 @@ void Generator::GenerateExpression(const Expression &expr) {
          utils::getOperatorAction(static_cast<const Binary &>(expr).op));
     return;
   }
+  case ExprType::Assignment: {
+    const Assignment &assignment = static_cast<const Assignment &>(expr);
+    GenerateExpression(*assignment.right);
+    emit(
+        assignment.location, Action::Store_Local,
+        indexes.slots.at(static_cast<const Variable &>(*assignment.left).name));
+    return;
+  }
+  case ExprType::Variable:
+    emit(expr.location, Action::Load_Local,
+         indexes.slots.at(static_cast<const Variable &>(expr).name));
+    return;
   default:
     return;
   }

@@ -1,9 +1,12 @@
 #pragma once
 #include "AST.h"
 #include "bytecode.h"
+#include "slot_table.h"
 class Generator {
 public:
   const Bytecode &Generate(const Program &program);
+  const Slot_Table &indexes;
+  Generator(const Slot_Table &table) : indexes(table) {};
 
 private:
   void GenerateExpression(const Expression &expr);

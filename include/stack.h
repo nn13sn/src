@@ -12,6 +12,7 @@ public:
     data.pop_back();
     return value;
   }
+  inline RuntimeValue &Top() { return data.back(); }
   inline size_t Size() { return data.size(); }
   inline const RuntimeValue &peek(const size_t &pos) { return data[pos]; }
 };

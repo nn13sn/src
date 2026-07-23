@@ -1,6 +1,8 @@
 #include "VM.h"
 #include "vm_error.h"
 
+VM::VM(const uint32_t &size) { locals.resize(size); }
+
 void VM::Add() {
   auto right = stack.Pop();
   auto left = stack.Pop();
@@ -58,7 +60,7 @@ signed char VM::evaluate(const Bytecode &code) {
         stack.Push(code.values[instruction.operand]);
         break;
       case Action::Pop:
-        stack.Pop();
+        std::cout << std::get<int64_t>(stack.Pop().getData());
         break;
       case Action::Add:
         Add();
@@ -71,6 +73,12 @@ signed char VM::evaluate(const Bytecode &code) {
         break;
       case Action::Div:
         Div();
+        break;
+      case Action::Store_Local:
+        locals[instruction.operand] = stack.Top();
+        break;
+      case Action::Load_Local:
+        stack.Push(locals[instruction.operand]);
         break;
       default:
         throw VM_error("Unknown instruction");

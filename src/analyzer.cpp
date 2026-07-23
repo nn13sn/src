@@ -12,6 +12,9 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
           SemanticError("Undefined variable", expr.location));
     return;
   }
+  case ExprType::Assignment:
+    AnalyzeAssignment(static_cast<const Assignment &>(expr));
+    break;
   case ExprType::Binary:
     AnalyzeBinary(static_cast<const Binary &>(expr));
     return;
@@ -38,19 +41,18 @@ void Analyzer::AnalyzeExpression(const Expression &expr) {
 }
 
 void Analyzer::AnalyzeBinary(const Binary &expr) {
-  if (expr.op == Operator::Def) {
-    if (expr.left->ExpressionType != ExprType::Variable)
-      errors.push_back(
-          SemanticError("The definition operator can only be used to variables",
-                        expr.location));
-    AnalyzeExpression(*expr.right);
-    env->Define(currentmodifiers,
-                static_cast<const Variable &>(*expr.left).name, errors,
-                expr.location);
-    return;
-  }
   AnalyzeExpression(*expr.left);
   return AnalyzeExpression(*expr.right);
+}
+
+void Analyzer::AnalyzeAssignment(const Assignment &expr) {
+  if (expr.left->ExpressionType != ExprType::Variable)
+    errors.push_back(
+        SemanticError("The definition operator can only be used to variables",
+                      expr.location));
+  AnalyzeExpression(*expr.right);
+  env->Define(currentmodifiers, static_cast<const Variable &>(*expr.left).name,
+              errors, expr.location);
 }
 
 void Analyzer::AnalyzeUnary(const Unary &expr) {
