@@ -49,6 +49,6 @@ bool isDynamic(const int32_t &modifiers);
 
 bool isConst(const int32_t &modifiers);
 
-Action getOperatorAction(const Operator &op);
+Action getOperatorAction(const Operator &op, const bool &binary = true);
 
 } // namespace utils

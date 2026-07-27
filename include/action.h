@@ -10,8 +10,17 @@ enum class Action : uint8_t {
   Sub,
   Mul,
   Div,
+  Mod,
+
+  Equal,
+  NotEqual,
+  Greater,
+  Less,
+  LessEq,
+  GreaterEq,
 
   Neg,
+  Not,
 
   Pop
 };

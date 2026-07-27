@@ -11,10 +11,10 @@ public:
   void lock();
   void unlock();
   RuntimeValue &get();
-  void increment(const Location &loc);
-  void decrement(const Location &loc);
-  void set(const RuntimeValue &value, const Location &loc);
-  void setData(const Data &data, const Location &loc);
+  void increment();
+  void decrement();
+  void set(const RuntimeValue &value);
+  void setData(const Data &data);
   RuntimeVariable(const RuntimeValue &val, const bool &isconst = false)
       : value(val), isConst(isconst) {};
   RuntimeVariable() {};

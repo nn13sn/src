@@ -21,10 +21,10 @@ public:
   RuntimeValue(const Literal &value);
   RuntimeValue(const Datatype &type, const Data &data);
   RuntimeValue();
-  void increment(const Location &loc);
-  void decrement(const Location &loc);
-  void set(const RuntimeValue &var, const Location &loc);
-  void setData(const Data &data, const Location &loc);
+  void increment();
+  void decrement();
+  void set(const RuntimeValue &var);
+  void setData(const Data &data);
   const Data &getData() const;
   const Datatype &getType() const;
 };

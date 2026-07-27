@@ -1,5 +1,5 @@
 #include "runtime_value.h"
-
+#include "vm_error.h"
 RuntimeValue::RuntimeValue(const Literal &value) {
   type = value.type;
   std::visit([this](const auto &data) { this->data = data; }, value.data);
@@ -40,7 +40,7 @@ Datatype RuntimeValue::deduceType(const Data &data) {
       data);
 }
 
-void RuntimeValue::increment(const Location &loc) {
+void RuntimeValue::increment() {
   if (utils::isNumerical(*this)) {
     std::visit(
         [](auto &c) {
@@ -51,11 +51,10 @@ void RuntimeValue::increment(const Location &loc) {
         },
         this->data);
   } else
-    throw interpreter_error(
-        "The increment operator cannot be used to such value type", loc);
+    throw VM_error("The increment operator cannot be used to such value type");
 }
 
-void RuntimeValue::decrement(const Location &loc) {
+void RuntimeValue::decrement() {
   if (utils::isNumerical(*this)) {
     std::visit(
         [](auto &c) {
@@ -66,15 +65,12 @@ void RuntimeValue::decrement(const Location &loc) {
         },
         this->data);
   } else
-    throw interpreter_error(
-        "The increment operator cannot be used to such value type", loc);
+    throw VM_error("The increment operator cannot be used to such value type");
 }
 
-void RuntimeValue::set(const RuntimeValue &var, const Location &loc) {
-  *this = var;
-}
+void RuntimeValue::set(const RuntimeValue &var) { *this = var; }
 
-void RuntimeValue::setData(const Data &data, const Location &loc) {
+void RuntimeValue::setData(const Data &data) {
   this->data = data;
   type = deduceType(data);
 }

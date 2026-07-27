@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Reached Generator!\n";
     Generator generator(analyzer.table);
     auto code = generator.Generate(program);
-    // program.statements.clear();
+    program.statements.clear();
     std::cout << "Reached VM!\n";
     VM vm(analyzer.table.slots.size());
     auto result = vm.evaluate(code);

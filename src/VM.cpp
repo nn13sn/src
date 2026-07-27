@@ -1,54 +1,18 @@
 #include "VM.h"
+#include "runtime_operations.h"
 #include "vm_error.h"
 
 VM::VM(const uint32_t &size) { locals.resize(size); }
 
-void VM::Add() {
+template <typename OperationFunc> void VM::BinaryOperation(OperationFunc func) {
   auto right = stack.Pop();
   auto left = stack.Pop();
-
-  if (!utils::isNumerical(left) || !utils::isNumerical(right))
-    throw VM_error("Operator \"+\" cannot be used with such data type");
-
-  stack.Push(
-      RuntimeValue(Datatype::Int, std::get<int64_t>(left.getData()) +
-                                      std::get<int64_t>(right.getData())));
+  stack.Push(func(left, right));
 }
 
-void VM::Sub() {
-  auto right = stack.Pop();
-  auto left = stack.Pop();
-
-  if (!utils::isNumerical(left) || !utils::isNumerical(right))
-    throw VM_error("Operator \"-\" cannot be used with such data type");
-
-  stack.Push(
-      RuntimeValue(Datatype::Int, std::get<int64_t>(left.getData()) -
-                                      std::get<int64_t>(right.getData())));
-}
-
-void VM::Mul() {
-  auto right = stack.Pop();
-  auto left = stack.Pop();
-
-  if (!utils::isNumerical(left) || !utils::isNumerical(right))
-    throw VM_error("Operator \"*\" cannot be used with such data type");
-
-  stack.Push(
-      RuntimeValue(Datatype::Int, std::get<int64_t>(left.getData()) *
-                                      std::get<int64_t>(right.getData())));
-}
-
-void VM::Div() {
-  auto right = stack.Pop();
-  auto left = stack.Pop();
-
-  if (!utils::isNumerical(left) || !utils::isNumerical(right))
-    throw VM_error("Operator \"/\" cannot be used with such data type");
-
-  stack.Push(
-      RuntimeValue(Datatype::Int, std::get<int64_t>(left.getData()) /
-                                      std::get<int64_t>(right.getData())));
+template <typename OperationFunc> void VM::UnaryOperation(OperationFunc func) {
+  auto value = stack.Pop();
+  stack.Push(func(value));
 }
 
 signed char VM::evaluate(const Bytecode &code) {
@@ -63,22 +27,49 @@ signed char VM::evaluate(const Bytecode &code) {
         std::cout << std::get<int64_t>(stack.Pop().getData());
         break;
       case Action::Add:
-        Add();
+        BinaryOperation(RuntimeOperations::Add);
         break;
       case Action::Sub:
-        Sub();
+        BinaryOperation(RuntimeOperations::Sub);
         break;
       case Action::Mul:
-        Mul();
+        BinaryOperation(RuntimeOperations::Mul);
         break;
       case Action::Div:
-        Div();
+        BinaryOperation(RuntimeOperations::Div);
+        break;
+      case Action::Mod:
+        BinaryOperation(RuntimeOperations::Mod);
+        break;
+      case Action::Equal:
+        BinaryOperation(RuntimeOperations::Equal);
+        break;
+      case Action::NotEqual:
+        BinaryOperation(RuntimeOperations::NotEqual);
+        break;
+      case Action::Less:
+        BinaryOperation(RuntimeOperations::Less);
+        break;
+      case Action::Greater:
+        BinaryOperation(RuntimeOperations::Greater);
+        break;
+      case Action::LessEq:
+        BinaryOperation(RuntimeOperations::LessEq);
+        break;
+      case Action::GreaterEq:
+        BinaryOperation(RuntimeOperations::GreaterEq);
+        break;
+      case Action::Neg:
+        UnaryOperation(RuntimeOperations::Neg);
+        break;
+      case Action::Not:
+        UnaryOperation(RuntimeOperations::Not);
         break;
       case Action::Store_Local:
         locals[instruction.operand] = stack.Top();
         break;
       case Action::Load_Local:
-        stack.Push(locals[instruction.operand]);
+        stack.Push(locals[instruction.operand].get());
         break;
       default:
         throw VM_error("Unknown instruction");

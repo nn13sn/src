@@ -1,6 +1,6 @@
 #include "runtime_variable.h"
 #include "runtime_value.h"
-
+#include "vm_error.h"
 bool RuntimeVariable::CheckConst() { return !(isConst || locked); }
 
 void RuntimeVariable::lock() { locked++; }
@@ -9,34 +9,34 @@ void RuntimeVariable::unlock() { locked--; }
 
 RuntimeValue &RuntimeVariable::get() { return value; }
 
-void RuntimeVariable::increment(const Location &loc) {
+void RuntimeVariable::increment() {
   if (isConst)
-    throw interpreter_error("Cannot modify constant", loc);
+    throw VM_error("Cannot modify constant");
   if (locked)
-    throw interpreter_error("Cannot modify loop iterator", loc);
-  value.increment(loc);
+    throw VM_error("Cannot modify loop iterator");
+  value.increment();
 }
 
-void RuntimeVariable::decrement(const Location &loc) {
+void RuntimeVariable::decrement() {
   if (isConst)
-    throw interpreter_error("Cannot modify constant", loc);
+    throw VM_error("Cannot modify constant");
   if (locked)
-    throw interpreter_error("Cannot modify loop iterator", loc);
-  value.decrement(loc);
+    throw VM_error("Cannot modify loop iterator");
+  value.decrement();
 }
 
-void RuntimeVariable::set(const RuntimeValue &value, const Location &loc) {
+void RuntimeVariable::set(const RuntimeValue &value) {
   if (isConst)
-    throw interpreter_error("Cannot modify constant", loc);
+    throw VM_error("Cannot modify constant");
   if (locked)
-    throw interpreter_error("Cannot modify loop iterator", loc);
+    throw VM_error("Cannot modify loop iterator");
   this->value = value;
 }
 
-void RuntimeVariable::setData(const Data &data, const Location &loc) {
+void RuntimeVariable::setData(const Data &data) {
   if (isConst)
-    throw interpreter_error("Cannot modify constant", loc);
+    throw VM_error("Cannot modify constant");
   if (locked)
-    throw interpreter_error("Cannot modify loop iterator", loc);
-  value.setData(data, loc);
+    throw VM_error("Cannot modify loop iterator");
+  value.setData(data);
 }

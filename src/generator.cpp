@@ -2,10 +2,10 @@
 #include "AST.h"
 #include "utils.h"
 
-void Generator::emit(const Location &location, const Action &action,
-                     const uint32_t &operand) {
-  code.code.emplace_back(Instruction(action, operand));
-  code.locations.push_back(location);
+void Generator::emit(Location location, const Action &action,
+                     uint32_t operand) {
+  code.code.emplace_back(Instruction(action, std::move(operand)));
+  code.locations.push_back(std::move(location));
 }
 
 void Generator::GenerateExpression(const Expression &expr) {
@@ -18,8 +18,7 @@ void Generator::GenerateExpression(const Expression &expr) {
     const Binary &binary = static_cast<const Binary &>(expr);
     GenerateExpression(*binary.left);
     GenerateExpression(*binary.right);
-    emit(binary.location,
-         utils::getOperatorAction(static_cast<const Binary &>(expr).op));
+    emit(binary.location, utils::getOperatorAction(binary.op));
     return;
   }
   case ExprType::Assignment: {
@@ -34,6 +33,12 @@ void Generator::GenerateExpression(const Expression &expr) {
     emit(expr.location, Action::Load_Local,
          indexes.slots.at(static_cast<const Variable &>(expr).name));
     return;
+  case ExprType::Unary: {
+    const Unary &unary = static_cast<const Unary &>(expr);
+    GenerateExpression(*unary.expr);
+    emit(expr.location, utils::getOperatorAction(unary.op, false));
+    return;
+  }
   default:
     return;
   }

@@ -80,7 +80,7 @@ bool utils::isConst(const int32_t &modifiers) {
   return (modifiers & MOD_CONST) ? true : false;
 }
 
-Action utils::getOperatorAction(const Operator &op) {
+Action utils::getOperatorAction(const Operator &op, const bool &binary) {
   switch (op) {
   case Operator::Add:
     return Action::Add;
@@ -89,6 +89,20 @@ Action utils::getOperatorAction(const Operator &op) {
   case Operator::Mul:
     return Action::Mul;
   case Operator::Sub:
-    return Action::Sub;
+    return (binary) ? Action::Sub : Action::Neg;
+  case Operator::Equal:
+    return Action::Equal;
+  case Operator::NotEqual:
+    return Action::NotEqual;
+  case Operator::Less:
+    return Action::Less;
+  case Operator::Greater:
+    return Action::Greater;
+  case Operator::LessEq:
+    return Action::LessEq;
+  case Operator::GreaterEq:
+    return Action::GreaterEq;
+  case Operator::Not:
+    return Action::Not;
   }
 }

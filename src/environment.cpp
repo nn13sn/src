@@ -28,7 +28,7 @@ void Environment::set(const std::string &name, const RuntimeValue &value,
     if (mods != 0)
       throw interpreter_error(
           "Modifiers can be used only in the first declaration", loc);
-    ptr->set(value, loc);
+    ptr->set(value);
     return;
   }
 

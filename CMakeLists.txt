@@ -8,7 +8,6 @@ add_executable(DoubleC
     src/main.cpp
     src/lexer.cpp
     src/parser.cpp
-    src/interpreter.cpp
     src/analyzer.cpp
     src/runtime_value.cpp
     src/runtime_variable.cpp
@@ -16,6 +15,7 @@ add_executable(DoubleC
     src/utils.cpp
     src/generator.cpp
     src/VM.cpp
+    src/runtime_operations.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)
