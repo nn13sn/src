@@ -39,6 +39,12 @@ void Generator::GenerateExpression(const Expression &expr) {
     emit(expr.location, utils::getOperatorAction(unary.op, false));
     return;
   }
+  case ExprType::Cast: {
+    const auto &cast = static_cast<const Cast &>(expr);
+    GenerateExpression(*cast.expr);
+    return emit(expr.location, Action::Cast,
+                static_cast<uint32_t>(cast.castTo));
+  }
   default:
     return;
   }

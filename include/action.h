@@ -19,6 +19,8 @@ enum class Action : uint8_t {
   LessEq,
   GreaterEq,
 
+  Cast,
+
   Neg,
   Not,
 

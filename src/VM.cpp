@@ -1,4 +1,5 @@
 #include "VM.h"
+#include "runtime_cast.h"
 #include "runtime_operations.h"
 #include "vm_error.h"
 
@@ -24,7 +25,8 @@ signed char VM::evaluate(const Bytecode &code) {
         stack.Push(code.values[instruction.operand]);
         break;
       case Action::Pop:
-        std::cout << std::get<int64_t>(stack.Pop().getData());
+        // std::cout << std::get<int64_t>(stack.Pop().getData());
+        stack.Pop();
         break;
       case Action::Add:
         BinaryOperation(RuntimeOperations::Add);
@@ -64,6 +66,10 @@ signed char VM::evaluate(const Bytecode &code) {
         break;
       case Action::Not:
         UnaryOperation(RuntimeOperations::Not);
+        break;
+      case Action::Cast:
+        RuntimeCast::Cast(stack.Pop(),
+                          static_cast<Datatype>(instruction.operand));
         break;
       case Action::Store_Local:
         locals[instruction.operand] = stack.Top();

@@ -60,7 +60,7 @@ private:
   bool eatEnd();
   Datatype getDatatype();
   Datatype getDatatype(const Keyword &keyword);
-  std::variant<int64_t, unsigned char, std::string, double, bool,
+  std::variant<dc_int, dc_double, dc_char, dc_bool, dc_string,
                std::vector<Literal>>
   getData();
   void addModifier(int32_t &mods, const Keyword &keywrd);

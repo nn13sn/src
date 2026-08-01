@@ -9,7 +9,7 @@ struct Function {
   const FunctionStatement *declaration;
 };
 
-using Data = std::variant<int64_t, unsigned char, std::string, double, bool,
+using Data = std::variant<dc_int, dc_double, dc_char, dc_bool, dc_string,
                           std::vector<Literal>, std::shared_ptr<Function>>;
 
 class RuntimeValue {

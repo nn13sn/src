@@ -16,6 +16,7 @@ add_executable(DoubleC
     src/generator.cpp
     src/VM.cpp
     src/runtime_operations.cpp
+    src/runtime_cast.cpp
 )
 
 target_compile_features(DoubleC PRIVATE cxx_std_20)

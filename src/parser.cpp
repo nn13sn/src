@@ -95,15 +95,15 @@ Datatype Parser::getDatatype(const Keyword &keyword) {
   }
 }
 
-std::variant<int64_t, unsigned char, std::string, double, bool,
+std::variant<dc_int, dc_double, dc_char, dc_bool, dc_string,
              std::vector<Literal>>
 Parser::getData() {
   if (Check(TokenType::Number))
-    return std::stoi(peek().lexeme);
+    return std::stoll(peek().lexeme);
   if (Check(TokenType::Double))
     return std::stod(peek().lexeme);
   if (Check(TokenType::Symbol))
-    return static_cast<unsigned char>(peek().lexeme[0]);
+    return static_cast<dc_char>(peek().lexeme[0]);
   if (Check(TokenType::String))
     return peek().lexeme;
   if (Check(TokenType::Boolean)) {

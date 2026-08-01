@@ -20,15 +20,15 @@ Datatype RuntimeValue::deduceType(const Data &data) {
       [](auto &&a) -> Datatype {
         using T = std::decay_t<decltype(a)>;
 
-        if constexpr (std::is_same_v<T, int64_t>)
+        if constexpr (std::is_same_v<T, dc_int>)
           return Datatype::Int;
-        else if constexpr (std::is_same_v<T, unsigned char>)
+        else if constexpr (std::is_same_v<T, dc_char>)
           return Datatype::Char;
-        else if constexpr (std::is_same_v<T, double>)
+        else if constexpr (std::is_same_v<T, dc_double>)
           return Datatype::Double;
-        else if constexpr (std::is_same_v<T, bool>)
+        else if constexpr (std::is_same_v<T, dc_bool>)
           return Datatype::Bool;
-        else if constexpr (std::is_same_v<T, std::string>)
+        else if constexpr (std::is_same_v<T, dc_string>)
           return Datatype::String;
         else if constexpr (std::is_same_v<T, std::vector<Literal>>)
           return Datatype::Array;
