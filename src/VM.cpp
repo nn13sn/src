@@ -1,6 +1,7 @@
 #include "VM.h"
 #include "runtime_cast.h"
 #include "runtime_operations.h"
+#include "runtime_streams.h"
 #include "vm_error.h"
 
 VM::VM(const uint32_t &size) { locals.resize(size); }
@@ -25,7 +26,6 @@ signed char VM::evaluate(const Bytecode &code) {
         stack.Push(code.values[instruction.operand]);
         break;
       case Action::Pop:
-        // std::cout << std::get<int64_t>(stack.Pop().getData());
         stack.Pop();
         break;
       case Action::Add:
@@ -76,6 +76,9 @@ signed char VM::evaluate(const Bytecode &code) {
         break;
       case Action::Load_Local:
         stack.Push(locals[instruction.operand].get());
+        break;
+      case Action::Print:
+        RuntimeStreams::Print(stack.Pop());
         break;
       default:
         throw VM_error("Unknown instruction");

@@ -50,12 +50,20 @@ void Generator::GenerateExpression(const Expression &expr) {
   }
 }
 
+void Generator::GenerateOutput(const Output &stmt) {
+  GenerateExpression(*stmt.output);
+  emit(stmt.location, Action::Print);
+}
+
 const Bytecode &Generator::Generate(const Program &program) {
   for (const auto &stmt : program.statements) {
     switch (stmt->StatementType) {
     case StmtType::ExpressionStmt:
       GenerateExpression(*static_cast<const ExpressionStmt &>(*stmt).expr);
       emit(stmt->location, Action::Pop);
+      break;
+    case StmtType::Output:
+      GenerateOutput(static_cast<const Output &>(*stmt));
       break;
     default:
       break;

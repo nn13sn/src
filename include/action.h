@@ -24,5 +24,7 @@ enum class Action : uint8_t {
   Neg,
   Not,
 
-  Pop
+  Pop,
+
+  Print
 };
