@@ -236,3 +236,25 @@ RuntimeValue RuntimeOperations::Not(const RuntimeValue &value) {
     throw VM_error(
         "A non-numeric data type cannot be used with logical Not operator");
 }
+
+RuntimeValue RuntimeOperations::PreIncr(RuntimeVariable &value) {
+  value.increment();
+  return value.get();
+}
+
+RuntimeValue RuntimeOperations::PostIncr(RuntimeVariable &value) {
+  auto val = value.get();
+  value.increment();
+  return val;
+}
+
+RuntimeValue RuntimeOperations::PreDecr(RuntimeVariable &value) {
+  value.decrement();
+  return value.get();
+}
+
+RuntimeValue RuntimeOperations::PostDecr(RuntimeVariable &value) {
+  auto val = value.get();
+  value.decrement();
+  return val;
+}

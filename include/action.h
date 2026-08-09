@@ -23,6 +23,10 @@ enum class Action : uint8_t {
 
   Neg,
   Not,
+  PreIncr,
+  PostIncr,
+  PreDecr,
+  PostDecr,
 
   Pop,
 

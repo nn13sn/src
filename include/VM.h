@@ -1,5 +1,6 @@
 #pragma once
 #include "bytecode.h"
+#include "environment.h"
 #include "runtime_variable.h"
 #include "stack.h"
 #define VM_ERROR -1
@@ -11,7 +12,7 @@ public:
 
 private:
   Stack stack;
-  std::vector<RuntimeVariable> locals = {};
+  std::shared_ptr<Environment> env;
   size_t instruction_number = 0;
   void Add();
   void Sub();

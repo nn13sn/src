@@ -103,7 +103,7 @@ Parser::getData() {
   if (Check(TokenType::Double))
     return std::stod(peek().lexeme);
   if (Check(TokenType::Symbol))
-    return static_cast<dc_char>(peek().lexeme[0]);
+    return utils::decodeUTF8(peek().lexeme);
   if (Check(TokenType::String))
     return peek().lexeme;
   if (Check(TokenType::Boolean)) {

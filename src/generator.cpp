@@ -35,8 +35,16 @@ void Generator::GenerateExpression(const Expression &expr) {
     return;
   case ExprType::Unary: {
     const Unary &unary = static_cast<const Unary &>(expr);
+    auto op = utils::getOperatorAction(unary.op, false);
+    if (op == Action::PreIncr || op == Action::PostIncr ||
+        op == Action::PreDecr || op == Action::PostDecr) {
+      auto index =
+          indexes.slots.at(static_cast<const Variable &>(*unary.expr).name);
+      emit(expr.location, op, index);
+      return;
+    }
     GenerateExpression(*unary.expr);
-    emit(expr.location, utils::getOperatorAction(unary.op, false));
+    emit(expr.location, op);
     return;
   }
   case ExprType::Cast: {

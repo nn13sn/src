@@ -51,4 +51,7 @@ bool isConst(const int32_t &modifiers);
 
 Action getOperatorAction(const Operator &op, const bool &binary = true);
 
+char32_t decodeUTF8(const std::string &s);
+
+size_t utf8CharLength(const unsigned char &c);
 } // namespace utils

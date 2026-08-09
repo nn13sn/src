@@ -3,6 +3,6 @@ a = 5
 a <= 7
 -a
 !a
-out(a)
+out(a++)
 out("\n")
-out((5+2)*8+5)
+out(++a+1)

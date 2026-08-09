@@ -104,5 +104,50 @@ Action utils::getOperatorAction(const Operator &op, const bool &binary) {
     return Action::GreaterEq;
   case Operator::Not:
     return Action::Not;
+  case Operator::PreIncr:
+    return Action::PreIncr;
+  case Operator::PostIncr:
+    return Action::PostIncr;
+  case Operator::PreDecr:
+    return Action::PreDecr;
+  case Operator::PostDecr:
+    return Action::PostDecr;
   }
+}
+
+char32_t utils::decodeUTF8(const std::string &s) {
+  const unsigned char *bytes =
+      reinterpret_cast<const unsigned char *>(s.data());
+
+  switch (s.size()) {
+  case 1:
+    return bytes[0];
+
+  case 2:
+    return ((bytes[0] & 0x1F) << 6) | (bytes[1] & 0x3F);
+
+  case 3:
+    return ((bytes[0] & 0x0F) << 12) | ((bytes[1] & 0x3F) << 6) |
+           (bytes[2] & 0x3F);
+
+  case 4:
+    return ((bytes[0] & 0x07) << 18) | ((bytes[1] & 0x3F) << 12) |
+           ((bytes[2] & 0x3F) << 6) | (bytes[3] & 0x3F);
+  }
+}
+
+size_t utils::utf8CharLength(const unsigned char &c) {
+  if ((c & 0x80) == 0x00)
+    return 1;
+
+  if ((c & 0xE0) == 0xC0)
+    return 2;
+
+  if ((c & 0xF0) == 0xE0)
+    return 3;
+
+  if ((c & 0xF8) == 0xF0)
+    return 4;
+
+  throw std::invalid_argument("Invalid UTF-8 character");
 }

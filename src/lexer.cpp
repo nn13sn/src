@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "operators.h"
+#include "utils.h"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -119,12 +120,15 @@ bool Lexer::isText() {
         throw std::invalid_argument("Invalid Escape Sequence");
       tokens.back().emplace_back(TokenType::Symbol, UINT8_MAX,
                                  std::string(1, c), i + 1, startpos + 1);
+      pos++;
     } else {
+      size_t length = utils::utf8CharLength(Initialcode[i][pos]);
       tokens.back().emplace_back(TokenType::Symbol, UINT8_MAX,
-                                 std::string(1, Initialcode[i][pos]), i + 1,
+                                 Initialcode[i].substr(pos, length), i + 1,
                                  startpos + 1);
+      pos += length;
     }
-    if (Initialcode[i][++pos] != '\'')
+    if (Initialcode[i][pos] != '\'')
       throw std::invalid_argument("Invalid argument for char");
     return true;
   } else if (Initialcode[i][pos] == '"') {
@@ -148,8 +152,7 @@ bool Lexer::isText() {
 
 bool Lexer::isOperator() {
   auto startpos = pos;
-  Operator op = Operator::Invalid; // I could use numbers (uint8_t) right away
-                                   // but for safety i decided not to do so
+  Operator op = Operator::Invalid;
   switch (Initialcode[i][pos]) {
   case '+':
     if (Initialcode[i][pos + 1] == '+') {

@@ -4,7 +4,7 @@
 #include "runtime_streams.h"
 #include "vm_error.h"
 
-VM::VM(const uint32_t &size) { locals.resize(size); }
+VM::VM(const uint32_t &size) { env = std::make_shared<Environment>(size); }
 
 template <typename OperationFunc> void VM::BinaryOperation(OperationFunc func) {
   auto right = stack.Pop();
@@ -67,15 +67,32 @@ signed char VM::evaluate(const Bytecode &code) {
       case Action::Not:
         UnaryOperation(RuntimeOperations::Not);
         break;
+      case Action::PreIncr:
+        stack.Push(
+            RuntimeOperations::PreIncr(*env->getPointer(instruction.operand)));
+        break;
+      case Action::PostIncr:
+        stack.Push(
+            RuntimeOperations::PostIncr(*env->getPointer(instruction.operand)));
+        break;
+      case Action::PreDecr:
+        stack.Push(
+            RuntimeOperations::PreDecr(*env->getPointer(instruction.operand)));
+        break;
+      case Action::PostDecr:
+        stack.Push(
+            RuntimeOperations::PostDecr(*env->getPointer(instruction.operand)));
+        break;
+
       case Action::Cast:
         RuntimeCast::Cast(stack.Pop(),
                           static_cast<Datatype>(instruction.operand));
         break;
       case Action::Store_Local:
-        locals[instruction.operand] = stack.Top();
+        env->set(instruction.operand, stack.Top(), 0);
         break;
       case Action::Load_Local:
-        stack.Push(locals[instruction.operand].get());
+        stack.Push(env->get(instruction.operand).get());
         break;
       case Action::Print:
         RuntimeStreams::Print(stack.Pop());

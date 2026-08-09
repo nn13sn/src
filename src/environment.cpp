@@ -1,49 +1,42 @@
 #include "environment.h"
 #include "runtime_value.h"
-RuntimeVariable Environment::get(const std::string &name) {
-  if (auto value = globals.find(name); value != globals.end())
-    return value->second;
-  if (auto value = values.find(name); value != values.end()) {
-    return value->second;
-  }
+#include "vm_error.h"
+
+Environment::Environment(const uint32_t &size) { locals.resize(size); }
+
+RuntimeVariable Environment::get(const uint32_t &index) {
+  if (index < locals.size())
+    return locals[index];
   if (parent)
-    return parent->get(name);
+    return parent->get(index);
   return RuntimeValue(Datatype::Invalid, NULL);
 }
 
-RuntimeVariable *Environment::getPointer(const std::string &name) {
-  if (auto value = globals.find(name); value != globals.end())
-    return &value->second;
-  if (auto value = values.find(name); value != values.end()) {
-    return &value->second;
-  }
+RuntimeVariable *Environment::getPointer(const uint32_t &index) {
+  if (index < locals.size())
+    return &locals[index];
   if (parent)
-    return parent->getPointer(name);
+    return parent->getPointer(index);
   return nullptr;
 }
 
-void Environment::set(const std::string &name, const RuntimeValue &value,
-                      const Location &loc, const int32_t &mods) {
-  if (auto ptr = getPointer(name)) {
+void Environment::set(const uint32_t &index, const RuntimeValue &value,
+                      const int32_t &mods) {
+  if (auto ptr = getPointer(index)) {
     if (mods != 0)
-      throw interpreter_error(
-          "Modifiers can be used only in the first declaration", loc);
+      throw VM_error("Modifiers can be used only with the first declaration");
     ptr->set(value);
     return;
   }
 
   RuntimeVariable var{value, utils::isConst(mods)};
 
-  if (utils::isGlobal(mods))
-    globals[name] = var;
-  else
-    values[name] = var;
+  locals[index] = var;
 }
 
-bool Environment::newGlobal(const std::string &name,
-                            const RuntimeValue &value) {
-  if (!getPointer(name)) {
-    globals[name] = value;
+bool Environment::newGlobal(const uint32_t &index, const RuntimeValue &value) {
+  if (!getPointer(index)) {
+    globals[index] = value;
     return true;
   }
   return false;

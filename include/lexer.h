@@ -17,6 +17,7 @@ class Lexer {
   std::vector<std::vector<Token>> tokens;
   size_t i;
   size_t pos;
+
   bool isLetter();
   bool isDigit();
   bool isText();

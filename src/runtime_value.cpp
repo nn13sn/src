@@ -45,7 +45,9 @@ void RuntimeValue::increment() {
     std::visit(
         [](auto &c) {
           using T = std::decay_t<decltype(c)>;
-          if constexpr (std::is_arithmetic_v<T>) {
+          if constexpr (std::is_same_v<T, dc_int> ||
+                        std::is_same_v<T, dc_double> ||
+                        std::is_same_v<T, dc_char>) {
             c = c + 1;
           }
         },
@@ -59,7 +61,9 @@ void RuntimeValue::decrement() {
     std::visit(
         [](auto &c) {
           using T = std::decay_t<decltype(c)>;
-          if constexpr (std::is_arithmetic_v<T>) {
+          if constexpr (std::is_same_v<T, dc_int> ||
+                        std::is_same_v<T, dc_double> ||
+                        std::is_same_v<T, dc_char>) {
             c = c - 1;
           }
         },
