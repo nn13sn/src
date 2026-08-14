@@ -75,6 +75,7 @@ Datatype Parser::getDatatype() {
     return Datatype::Bool;
   if (Check(TokenType::String))
     return Datatype::String;
+  SyntaxErr("Invalid data type provided");
   return Datatype::Invalid;
 }
 
@@ -91,7 +92,7 @@ Datatype Parser::getDatatype(const Keyword &keyword) {
   case Keyword::String:
     return Datatype::String;
   default:
-    return Datatype::Invalid;
+    SyntaxErr("Invalid data type provided");
   }
 }
 
@@ -342,6 +343,13 @@ std::unique_ptr<Statement> Parser::ParseInput() {
     advance();
   else
     SyntaxErr(CLOSEPARENTHESIS);
+  if (Check(Operator::Arrow)) {
+    advance();
+    if (!Check(TokenType::Keyword))
+      SyntaxErr("A data type is expected to be provided");
+    stmt->InputType = getDatatype(static_cast<Keyword>(peek().value));
+    advance();
+  }
   return stmt;
 }
 

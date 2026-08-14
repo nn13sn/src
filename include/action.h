@@ -30,5 +30,6 @@ enum class Action : uint8_t {
 
   Pop,
 
-  Print
+  Print,
+  Read
 };

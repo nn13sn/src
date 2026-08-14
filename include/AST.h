@@ -51,6 +51,7 @@ struct Program : AST {
 
 struct Input : Statement {
   std::unique_ptr<Expression> input;
+  Datatype InputType = Datatype::Invalid;
 };
 
 struct Output : Statement {

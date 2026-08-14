@@ -85,18 +85,12 @@ void Analyzer::AnalyzeUnary(const Unary &expr) {
 }
 
 void Analyzer::AnalyzeInput(const Input &stmt) {
-  if (stmt.input->ExpressionType != ExprType::Variable &&
-      stmt.input->ExpressionType != ExprType::Cast)
+  if (stmt.input->ExpressionType != ExprType::Variable)
     return errors.push_back(
         SemanticError("Expressions cannot be used in the input function",
                       stmt.input->location));
-  if (stmt.input->ExpressionType == ExprType::Cast) {
-    const auto &a = static_cast<const Cast &>(*stmt.input);
-    if (a.expr->ExpressionType != ExprType::Variable)
-      return errors.push_back(
-          SemanticError("The variable inside the cast operation is expected",
-                        a.expr->location));
-  }
+  env->Define(0, static_cast<const Variable &>(*stmt.input).name, errors,
+              stmt.input->location);
 }
 
 void Analyzer::AnalyzeOutput(const Output &stmt) {

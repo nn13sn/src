@@ -40,3 +40,27 @@ void RuntimeStreams::PrintValue(const dc_string &value) { std::cout << value; }
 void RuntimeStreams::PrintValue(const auto &) {
   throw VM_error("Such data type cannot be printed");
 }
+
+template <> dc_char RuntimeStreams::Read<dc_char>() {
+  std::string value;
+  std::cin >> value;
+  return utils::decodeUTF8(value);
+}
+
+RuntimeValue RuntimeStreams::ReadValue(const Datatype &type) {
+  switch (type) {
+  case Datatype::Int:
+    return RuntimeValue(Datatype::Int, Read<dc_int>());
+  case Datatype::Double:
+    return RuntimeValue(Datatype::Double, Read<dc_double>());
+  case Datatype::Char:
+    return RuntimeValue(Datatype::Char, Read<dc_char>());
+  case Datatype::Bool:
+    return RuntimeValue(Datatype::Bool, Read<dc_bool>());
+  case Datatype::String:
+  case Datatype::Invalid:
+    return RuntimeValue(Datatype::String, Read<dc_string>());
+  default:
+    throw VM_error("Internal error"); // unreachable
+  }
+}

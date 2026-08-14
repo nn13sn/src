@@ -94,6 +94,10 @@ signed char VM::evaluate(const Bytecode &code) {
       case Action::Load_Local:
         stack.Push(env->get(instruction.operand).get());
         break;
+      case Action::Read:
+        stack.Push(RuntimeStreams::ReadValue(
+            static_cast<Datatype>(instruction.operand)));
+        break;
       case Action::Print:
         RuntimeStreams::Print(stack.Pop());
         break;

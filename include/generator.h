@@ -11,6 +11,7 @@ public:
 private:
   void GenerateExpression(const Expression &expr);
   void GenerateOutput(const Output &stmt);
+  void GenerateInput(const Input &stmt);
   Bytecode code;
   uint32_t index = 0;
 

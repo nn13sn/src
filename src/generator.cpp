@@ -63,6 +63,12 @@ void Generator::GenerateOutput(const Output &stmt) {
   emit(stmt.location, Action::Print);
 }
 
+void Generator::GenerateInput(const Input &stmt) {
+  emit(stmt.location, Action::Read, static_cast<uint32_t>(stmt.InputType));
+  emit(stmt.input->location, Action::Store_Local,
+       indexes.slots.at(static_cast<const Variable &>(*stmt.input).name));
+}
+
 const Bytecode &Generator::Generate(const Program &program) {
   for (const auto &stmt : program.statements) {
     switch (stmt->StatementType) {
@@ -72,6 +78,10 @@ const Bytecode &Generator::Generate(const Program &program) {
       break;
     case StmtType::Output:
       GenerateOutput(static_cast<const Output &>(*stmt));
+      break;
+    case StmtType::Input:
+      GenerateInput(static_cast<const Input &>(*stmt));
+      emit(stmt->location, Action::Pop);
       break;
     default:
       break;
