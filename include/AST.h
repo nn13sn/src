@@ -117,6 +117,9 @@ struct exprValue : Expression {
 
 struct Variable : Expression {
   std::string name;
+  Variable() : id(amount++) {}
+  inline static uint32_t amount = 0;
+  uint32_t id;
 };
 
 struct FunctionCall : Expression {

@@ -26,19 +26,22 @@ struct AnalyzerEnv {
       a->isallowed(mods, errors, loc);
       return;
     }
-    table->slots[name] = table->nextslot++;
+    table->IDs.push_back(table->nextID++);
+    table->slots.push_back(table->nextSlot++);
     if (utils::isGlobal(mods))
-      globals.insert({name, AnalyzerVariable(mods)});
+      globals.insert({name, AnalyzerVariable(mods, table->IDs.size() - 1)});
     else
-      variables.insert({name, AnalyzerVariable(mods)});
+      variables.insert({name, AnalyzerVariable(mods, table->IDs.size() - 1)});
   }
 };
 
 inline AnalyzerVariable *AnalyzerEnv::exists(const std::string &name) {
   if (auto a = globals.find(name); a != globals.end())
     return &a->second;
-  if (auto a = variables.find(name); a != variables.end())
+  if (auto a = variables.find(name); a != variables.end()) {
+    table->IDs.push_back(table->IDs[a->second.ID]);
     return &a->second;
+  }
   if (parent)
     return parent->exists(name);
   return nullptr;

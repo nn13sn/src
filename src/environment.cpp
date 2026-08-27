@@ -4,6 +4,13 @@
 
 Environment::Environment(const uint32_t &size) { locals.resize(size); }
 
+void Environment::enterScope() { scopesizes.push_back(locals.size()); }
+
+void Environment::exitScope() {
+  locals.resize(scopesizes.back());
+  scopesizes.pop_back();
+}
+
 RuntimeVariable Environment::get(const uint32_t &index) {
   if (index < locals.size())
     return locals[index];

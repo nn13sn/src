@@ -253,10 +253,15 @@ void Analyzer::printErrors() {
   }
 }
 
-void Analyzer::newScope() { env = new AnalyzerEnv({}, env); }
+void Analyzer::newScope() {
+  env = new AnalyzerEnv({}, env);
+  Scopestats.push_back(table.nextSlot);
+}
 
 void Analyzer::removeScope() {
   auto envcopy = env->parent;
   delete env;
   env = envcopy;
+  table.nextSlot = Scopestats.back();
+  Scopestats.pop_back();
 }

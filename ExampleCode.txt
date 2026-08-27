@@ -1,4 +1,11 @@
-in(a) -> double
+in(a) -> int
 out("\n")
-out(a+0.3)
+if(a>5) {
+b = "yes"
+out(b)
+}
+else {
+c = "no"
+out(c)
+}
 

@@ -83,7 +83,6 @@ signed char VM::evaluate(const Bytecode &code) {
         stack.Push(
             RuntimeOperations::PostDecr(*env->getPointer(instruction.operand)));
         break;
-
       case Action::Cast:
         RuntimeCast::Cast(stack.Pop(),
                           static_cast<Datatype>(instruction.operand));
@@ -100,6 +99,19 @@ signed char VM::evaluate(const Bytecode &code) {
         break;
       case Action::Print:
         RuntimeStreams::Print(stack.Pop());
+        break;
+      case Action::JumpIfFalse:
+        if (!RuntimeCast::As<bool>(stack.Pop()))
+          instruction_number = instruction.operand;
+        break;
+      case Action::Jump:
+        instruction_number = instruction.operand;
+        break;
+      case Action::EnterScope:
+        env->enterScope();
+        break;
+      case Action::ExitScope:
+        env->exitScope();
         break;
       default:
         throw VM_error("Unknown instruction");

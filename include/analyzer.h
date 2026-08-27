@@ -8,11 +8,13 @@
 
 class Analyzer {
   std::vector<SemanticError> errors = {};
+  std::vector<uint32_t> Scopestats;
   AnalyzerEnv *env = new AnalyzerEnv(&table);
   bool insidefunction = false;
   bool insideLoop = false;
   int32_t currentmodifiers = 0;
   bool ignoreVariables = false;
+
   void AnalyzeExpression(const Expression &expr);
   void AnalyzeBinary(const Binary &expr);
   void AnalyzeAssignment(const Assignment &expr);

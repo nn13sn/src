@@ -12,8 +12,11 @@ private:
   void GenerateExpression(const Expression &expr);
   void GenerateOutput(const Output &stmt);
   void GenerateInput(const Input &stmt);
+  void GenerateIf(const IfStatement &stmt);
   Bytecode code;
   uint32_t index = 0;
 
-  void emit(Location location, const Action &action, uint32_t operand = 0);
+  size_t emit(Location location, const Action &action, uint32_t operand = 0);
+  void FinishJump(const size_t &instruction, const size_t &target);
+  void GenerateBody(const Program &program);
 };
